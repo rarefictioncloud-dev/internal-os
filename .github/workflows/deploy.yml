@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-
   workflow_dispatch:
 
 permissions:
@@ -46,10 +45,26 @@ jobs:
           VITE_CLOUDINARY_PROFILE_PRESET: ${{ secrets.VITE_CLOUDINARY_PROFILE_PRESET }}
           VITE_CLOUDINARY_MEDIA_PRESET: ${{ secrets.VITE_CLOUDINARY_MEDIA_PRESET }}
 
+      - name: Verify build output
+        run: |
+          echo "===== DIST ====="
+          find dist -maxdepth 2 -type f -print
+          echo "===== INDEX ====="
+          test -f dist/index.html
+          echo "===== JAVASCRIPT ====="
+          find dist/assets -name "*.js" -type f
+          echo "===== CSS ====="
+          find dist/assets -name "*.css" -type f
+          echo "===== 404 ====="
+          test -f dist/404.html
+
+      - name: Add GitHub Pages marker
+        run: touch dist/.nojekyll
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
@@ -60,6 +75,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     runs-on: ubuntu-latest
+
     needs: build
 
     steps:

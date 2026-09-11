@@ -25,7 +25,7 @@ import AppLayout from "../components/layout/AppLayout";
 
 function AppRoutes() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/internal-os">
       <Routes>
 
         {/* =========================

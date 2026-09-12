@@ -18,8 +18,13 @@ import { useNavigate } from "react-router-dom";
 import { auth, db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 
+// Profile photos use the dedicated profile preset.
+// Keep the legacy upload-preset name as a fallback so existing local
+// environments continue to work without changing the UI or Firestore flow.
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+const CLOUDINARY_UPLOAD_PRESET =
+  import.meta.env.VITE_CLOUDINARY_PROFILE_PRESET ||
+  import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
 function getInitials(name = "") {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -249,7 +254,7 @@ function Profile() {
 
     if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
       setPhotoError(
-        "Cloudinary is not configured yet. Add VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET to your .env file."
+        "Cloudinary profile upload is not configured. Add VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_PROFILE_PRESET to the production build environment."
       );
       return;
     }

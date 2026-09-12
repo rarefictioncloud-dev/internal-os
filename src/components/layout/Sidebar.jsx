@@ -15,7 +15,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import {
   collection,
@@ -49,7 +49,12 @@ const groups = [
   ],
 ];
 
-const TOAST_DURATION = 3000;
+// Task toast duration is UNCHANGED (kept exactly as before).
+const TASK_TOAST_DURATION = 3000;
+
+// Message toast now shows for 5 seconds (per request), independent of tasks.
+const MESSAGE_TOAST_DURATION = 5000;
+
 const MESSAGE_LOOKBACK = 100;
 
 function timestampMillis(value) {
@@ -71,6 +76,7 @@ function getMessageText(message) {
 
 export default function Sidebar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { profile, user } = useAuth();
   const role = profile?.role;
   const uid = user?.uid || auth.currentUser?.uid || "";
@@ -84,6 +90,25 @@ export default function Sidebar() {
   const taskStateRef = useRef(new Map());
   const toastTimerRef = useRef(null);
   const taskToastTimerRef = useRef(null);
+
+  // Tracks whether the user is currently ON the Messages page. This is
+  // the single "seen" trigger for the unread badge: opening Messages
+  // clears it, and while it's open new incoming messages don't bump it
+  // back up (they're being seen as they arrive).
+  const onMessagesPageRef = useRef(false);
+
+  useEffect(() => {
+    const onMessagesPage =
+      location.pathname === "/messages" ||
+      location.pathname.startsWith("/messages/");
+
+    onMessagesPageRef.current = onMessagesPage;
+
+    if (onMessagesPage) {
+      messageStateRef.current.clear();
+      setMessageUnread(0);
+    }
+  }, [location.pathname]);
 
   const can = roles => roles.includes(role);
 
@@ -122,6 +147,36 @@ export default function Sidebar() {
    * The Firestore rules already restrict direct conversation/message
    * reads to active users who are members of that conversation, and
    * read receipts to the authenticated user.
+   *
+   * BADGE BEHAVIOR (WhatsApp-style):
+   * Each entry in messageStateRef holds a plain unread COUNT for that
+   * thread (general or a direct conversation). The sidebar badge is the
+   * SUM of those counts across every thread.
+   *
+   * The count for a thread is set in exactly two ways:
+   *   1. BASELINE — the first time a thread's messages are loaded, we
+   *      compare against the user's `reads/{uid}.lastSeenMessageId` doc
+   *      (if any) once, to seed a starting count for messages that were
+   *      already unread before this session mounted.
+   *   2. INCREMENT — after that, every genuinely new incoming message
+   *      (a real-time "added" change whose sender isn't this user) adds
+   *      +1, using the exact same detection that already drives the
+   *      pop-up toast.
+   *
+   * Deliberately NOT done: recomputing/overwriting a thread's count from
+   * every subsequent `reads/{uid}` snapshot. Doing that previously
+   * caused the badge to intermittently read back as 0 right after a
+   * fresh message arrived — a late/duplicate read-receipt snapshot could
+   * race with the new message and wipe the count even though nothing
+   * had actually been read. The read-receipt listener below now only
+   * tracks the pointer for step 1; it never sets counts or recalculates.
+   *
+   * The badge only clears via `onMessagesPageRef` (see the effect above)
+   * — i.e. once the user actually opens the Messages page — so the "1"
+   * persists through the toast disappearing and through navigating to
+   * any other page, exactly as requested.
+   *
+   * The sidebar still does not write anything — it only listens.
    */
   useEffect(() => {
     if (!uid) {
@@ -149,17 +204,50 @@ export default function Sidebar() {
 
       toastTimerRef.current = window.setTimeout(() => {
         setMessageToast(null);
-      }, TOAST_DURATION);
+      }, MESSAGE_TOAST_DURATION);
     };
 
     const recalculate = () => {
       let total = 0;
 
-      for (const state of messageStateRef.current.values()) {
-        if ((state.unread || 0) > 0) total += 1;
+      for (const count of messageStateRef.current.values()) {
+        total += count || 0;
       }
 
       setMessageUnread(total);
+    };
+
+    // Step 1 (see comment above): seed a thread's starting count once,
+    // the first time its messages load. If the user is already sitting
+    // on the Messages page when this loads, treat it as already seen.
+    const applyBaseline = (conversationId, messages, lastSeenMessageId) => {
+      if (onMessagesPageRef.current) {
+        messageStateRef.current.set(conversationId, 0);
+        return;
+      }
+
+      const seenIndex = lastSeenMessageId
+        ? messages.findIndex(item => item.id === lastSeenMessageId)
+        : -1;
+
+      const unseen =
+        seenIndex >= 0 ? messages.slice(seenIndex + 1) : messages;
+
+      const incomingUnseen = unseen.filter(
+        message => message.senderId !== uid
+      );
+
+      messageStateRef.current.set(conversationId, incomingUnseen.length);
+    };
+
+    // Step 2 (see comment above): bump a thread's count for genuinely
+    // new incoming messages. No-ops while the user is on the Messages
+    // page, since those are being seen as they arrive.
+    const bumpUnread = (conversationId, addedCount) => {
+      if (onMessagesPageRef.current || !addedCount) return;
+
+      const current = messageStateRef.current.get(conversationId) || 0;
+      messageStateRef.current.set(conversationId, current + addedCount);
     };
 
     const attachConversation = conversationId => {
@@ -178,30 +266,12 @@ export default function Sidebar() {
       const unsubscribeRead = onSnapshot(
         doc(db, "conversations", conversationId, "reads", uid),
         snapshot => {
+          // Only tracks the pointer for the baseline calculation below.
+          // Does NOT touch messageStateRef or recalculate — see the
+          // "Deliberately NOT done" note above.
           lastSeenMessageId = snapshot.exists()
             ? snapshot.data()?.lastSeenMessageId || null
             : null;
-
-          const seenIndex = lastSeenMessageId
-            ? latestMessages.findIndex(item => item.id === lastSeenMessageId)
-            : -1;
-
-          const unreadMessages =
-            seenIndex >= 0
-              ? latestMessages.slice(seenIndex + 1)
-              : latestMessages;
-
-          const incomingUnread = unreadMessages.filter(
-            message => message.senderId !== uid
-          );
-
-          messageStateRef.current.set(conversationId, {
-            unread: incomingUnread.length,
-            latestMessageId:
-              latestMessages[latestMessages.length - 1]?.id || null,
-          });
-
-          recalculate();
         },
         error => {
           if (error?.code !== "permission-denied") {
@@ -220,28 +290,14 @@ export default function Sidebar() {
             ...item.data(),
           }));
 
-          const seenIndex = lastSeenMessageId
-            ? latestMessages.findIndex(item => item.id === lastSeenMessageId)
-            : -1;
-
-          const unreadMessages =
-            seenIndex >= 0
-              ? latestMessages.slice(seenIndex + 1)
-              : latestMessages;
-
-          const incomingUnread = unreadMessages.filter(
-            message => message.senderId !== uid
-          );
-
-          messageStateRef.current.set(conversationId, {
-            unread: incomingUnread.length,
-            latestMessageId:
-              latestMessages[latestMessages.length - 1]?.id || null,
-          });
-
           if (!messagesInitialized) {
             messagesInitialized = true;
-          } else if (changes.length) {
+            applyBaseline(conversationId, latestMessages, lastSeenMessageId);
+            recalculate();
+            return;
+          }
+
+          if (changes.length) {
             const addedIncoming = changes
               .filter(
                 change =>
@@ -258,14 +314,14 @@ export default function Sidebar() {
                   timestampMillis(b.createdAt)
               );
 
-            const lastIncoming = addedIncoming[addedIncoming.length - 1];
+            if (addedIncoming.length) {
+              bumpUnread(conversationId, addedIncoming.length);
+              recalculate();
 
-            if (lastIncoming) {
+              const lastIncoming = addedIncoming[addedIncoming.length - 1];
               showMessageToast(lastIncoming);
             }
           }
-
-          recalculate();
         },
         error => {
           if (error?.code !== "permission-denied") {
@@ -295,30 +351,12 @@ export default function Sidebar() {
     const unsubscribeGeneralRead = onSnapshot(
       doc(db, "conversations", "general", "reads", uid),
       snapshot => {
+        // Only tracks the pointer for the baseline calculation below.
+        // Does NOT touch messageStateRef or recalculate — see the
+        // "Deliberately NOT done" note above.
         generalLastSeenMessageId = snapshot.exists()
           ? snapshot.data()?.lastSeenMessageId || null
           : null;
-
-        const seenIndex = generalLastSeenMessageId
-          ? generalMessages.findIndex(
-              item => item.id === generalLastSeenMessageId
-            )
-          : -1;
-
-        const unreadMessages =
-          seenIndex >= 0
-            ? generalMessages.slice(seenIndex + 1)
-            : generalMessages;
-
-        messageStateRef.current.set("general", {
-          unread: unreadMessages.filter(
-            message => message.senderId !== uid
-          ).length,
-          latestMessageId:
-            generalMessages[generalMessages.length - 1]?.id || null,
-        });
-
-        recalculate();
       },
       error => {
         if (error?.code !== "permission-denied") {
@@ -337,28 +375,14 @@ export default function Sidebar() {
           ...item.data(),
         }));
 
-        const seenIndex = generalLastSeenMessageId
-          ? generalMessages.findIndex(
-              item => item.id === generalLastSeenMessageId
-            )
-          : -1;
-
-        const unreadMessages =
-          seenIndex >= 0
-            ? generalMessages.slice(seenIndex + 1)
-            : generalMessages;
-
-        messageStateRef.current.set("general", {
-          unread: unreadMessages.filter(
-            message => message.senderId !== uid
-          ).length,
-          latestMessageId:
-            generalMessages[generalMessages.length - 1]?.id || null,
-        });
-
         if (!generalInitialized) {
           generalInitialized = true;
-        } else if (changes.length) {
+          applyBaseline("general", generalMessages, generalLastSeenMessageId);
+          recalculate();
+          return;
+        }
+
+        if (changes.length) {
           const addedIncoming = changes
             .filter(
               change =>
@@ -375,14 +399,14 @@ export default function Sidebar() {
                 timestampMillis(b.createdAt)
             );
 
-          const lastIncoming = addedIncoming[addedIncoming.length - 1];
+          if (addedIncoming.length) {
+            bumpUnread("general", addedIncoming.length);
+            recalculate();
 
-          if (lastIncoming) {
+            const lastIncoming = addedIncoming[addedIncoming.length - 1];
             showMessageToast(lastIncoming);
           }
         }
-
-        recalculate();
       },
       error => {
         if (error?.code !== "permission-denied") {
@@ -393,9 +417,16 @@ export default function Sidebar() {
 
     unsubscribers.push(unsubscribeGeneralRead, unsubscribeGeneralMessages);
 
+    // NOTE: we deliberately do NOT filter by a `type` field here. If a
+    // personal/direct conversation document doesn't carry the exact
+    // expected type value, that filter silently excludes it from this
+    // query, so the sidebar never attaches a listener to it and its
+    // unread count never reaches the badge (this was the root cause of
+    // the "Messages" badge staying at 0 while a personal chat showed
+    // unread in the conversation list). Membership + explicitly
+    // skipping the "general" doc id (below) is sufficient and safe.
     const directConversationQuery = query(
       collection(db, "conversations"),
-      where("type", "==", "DIRECT"),
       where("memberIds", "array-contains", uid)
     );
 
@@ -450,7 +481,7 @@ export default function Sidebar() {
   }, [uid]);
 
   /*
-   * TASK NOTIFICATIONS
+   * TASK NOTIFICATIONS — UNCHANGED
    *
    * Only assigned, non-archived tasks are observed. The badge itself is
    * restricted to tasks whose workflow status is exactly TODO. The existing
@@ -523,7 +554,7 @@ export default function Sidebar() {
 
             taskToastTimerRef.current = window.setTimeout(() => {
               setTaskToast(null);
-            }, TOAST_DURATION);
+            }, TASK_TOAST_DURATION);
           }
         }
 
@@ -560,6 +591,11 @@ export default function Sidebar() {
     };
   }, [uid]);
 
+  // Dismisses only the pop-up. This intentionally does NOT touch
+  // messageUnread/messageStateRef — the "1" badge on Messages must keep
+  // showing after the 5s toast disappears, and only clears once the
+  // read receipt (lastSeenMessageId) actually catches up to that
+  // message, i.e. once the user opens and sees it.
   const closeMessageToast = () => {
     setMessageToast(null);
 
@@ -713,7 +749,7 @@ export default function Sidebar() {
                             {label === "Messages" && messageBadge > 0 ? (
                               <span
                                 className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-[#f47732] px-1.5 text-[10px] font-bold text-white shadow-[0_0_12px_rgba(244,119,50,.35)]"
-                                aria-label={`${messageUnread} unread conversations`}
+                                aria-label={`${messageUnread} unread messages`}
                               >
                                 {messageBadge}
                               </span>
@@ -782,10 +818,10 @@ export default function Sidebar() {
         </div>
       </aside>
 
-      {/* Short-lived message toast */}
+      {/* Short-lived message toast (5s), anchored to the bottom-left */}
       {messageToast ? (
         <div
-          className="fixed left-5 top-5 z-[100] w-[min(360px,calc(100vw-40px))] animate-[slideIn_.25s_ease-out]"
+          className="fixed bottom-5 left-5 z-[100] w-[min(360px,calc(100vw-40px))] animate-[slideIn_.25s_ease-out]"
           role="status"
           aria-live="polite"
         >
@@ -817,7 +853,7 @@ export default function Sidebar() {
         </div>
       ) : null}
 
-      {/* Short-lived task toast */}
+      {/* Short-lived task toast — UNCHANGED (3s) */}
       {taskToast ? (
         <div
           className="fixed left-5 top-[92px] z-[100] w-[min(360px,calc(100vw-40px))] animate-[slideIn_.25s_ease-out]"

@@ -1,456 +1,166 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebase/config";
 import { useNavigate } from "react-router-dom";
 
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Environment, useAnimations, useGLTF } from "@react-three/drei";
-import * as THREE from "three";
+import { auth } from "../firebase/config";
 
-const MODEL_URL = "/internal-os/models/human.glb";
+const BG_IMAGE_1 =
+  "https://images.higgs.ai/?default=1&output=webp&url=https%3A%2F%2Fd8j0ntlcm91z4.cloudfront.net%2Fuser_38xzZboKViGWJOttwIXH07lWA1P%2Fhf_20260609_195923_b0ba8ace-1d1d-4f2c-9a28-1ab84b330680.png&w=1280&q=85";
 
-/* ========================================================================= */
-/* BOSS MODEL                                                               */
-/* ========================================================================= */
+const BG_IMAGE_2 =
+  "https://images.higgs.ai/?default=1&output=webp&url=https%3A%2F%2Fd8j0ntlcm91z4.cloudfront.net%2Fuser_38xzZboKViGWJOttwIXH07lWA1P%2Fhf_20260609_201152_bba90a12-bf12-459f-91f0-51f237dbaf3b.png&w=1280&q=85";
 
-function BossModel({ mouse }) {
-  const group = useRef(null);
-  const character = useRef(null);
+const SPOTLIGHT_R = 260;
 
-  const { size } = useThree();
-  const { scene, animations } = useGLTF(MODEL_URL);
-  const { actions } = useAnimations(animations, group);
-
-  const [modelTransform, setModelTransform] = useState({
-    scale: 1,
-    x: 0,
-    y: 0,
-    z: 0,
-  });
-
-  /* ----------------------------------------------------------------------- */
-  /* MODEL SETUP                                                             */
-  /* ----------------------------------------------------------------------- */
+function RevealLayer({ image, cursorX, cursorY }) {
+  const canvasRef = useRef(null);
+  const [maskUrl, setMaskUrl] = useState("");
 
   useEffect(() => {
-    if (!scene) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    scene.traverse((object) => {
-      if (object.isMesh) {
-        object.frustumCulled = false;
+    const drawMask = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
 
-        if (object.material) {
-          object.material.needsUpdate = true;
-        }
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      ctx.clearRect(0, 0, width, height);
+
+      if (cursorX < -100 || cursorY < -100) {
+        setMaskUrl("");
+        return;
       }
-    });
 
-    scene.updateMatrixWorld(true);
+      const gradient = ctx.createRadialGradient(
+        cursorX,
+        cursorY,
+        0,
+        cursorX,
+        cursorY,
+        SPOTLIGHT_R
+      );
 
-    const box = new THREE.Box3().setFromObject(scene);
-    const dimensions = new THREE.Vector3();
-    const center = new THREE.Vector3();
+      gradient.addColorStop(0, "rgba(255,255,255,1)");
+      gradient.addColorStop(0.4, "rgba(255,255,255,1)");
+      gradient.addColorStop(0.6, "rgba(255,255,255,0.75)");
+      gradient.addColorStop(0.75, "rgba(255,255,255,0.4)");
+      gradient.addColorStop(0.88, "rgba(255,255,255,0.12)");
+      gradient.addColorStop(1, "rgba(255,255,255,0)");
 
-    box.getSize(dimensions);
-    box.getCenter(center);
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(cursorX, cursorY, SPOTLIGHT_R, 0, Math.PI * 2);
+      ctx.fill();
 
-    /*
-      Desktop:
-        smaller than the previous version.
+      setMaskUrl(canvas.toDataURL("image/png"));
+    };
 
-      Mobile:
-        considerably smaller so the Boss does not swallow the
-        entire creative panel.
-    */
-    const isMobile = size.width < 768;
-
-    const targetHeight = isMobile ? 2.65 : 3.65;
-
-    const scale =
-      targetHeight / Math.max(dimensions.y, 0.001);
-
-    setModelTransform({
-      scale,
-      x: -center.x * scale,
-      y: -box.min.y * scale - (isMobile ? 1.08 : 1.62),
-      z: -center.z * scale,
-    });
-  }, [scene, size.width]);
-
-  /* ----------------------------------------------------------------------- */
-  /* ANIMATION                                                               */
-  /* ----------------------------------------------------------------------- */
-
-  useEffect(() => {
-    if (!actions) return;
-
-    const names = Object.keys(actions);
-
-    if (!names.length) return;
-
-    const preferred =
-      names.find((name) =>
-        /idle|stand|breath|relax/i.test(name)
-      ) || names[0];
-
-    const action = actions[preferred];
-
-    if (!action) return;
-
-    action.reset();
-    action.setEffectiveWeight(1);
-    action.setEffectiveTimeScale(1);
-    action.fadeIn(0.35);
-    action.play();
+    drawMask();
+    window.addEventListener("resize", drawMask);
 
     return () => {
-      action.fadeOut(0.2);
+      window.removeEventListener("resize", drawMask);
     };
-  }, [actions]);
-
-  /* ----------------------------------------------------------------------- */
-  /* MOUSE / POINTER RESPONSE                                                */
-  /* ----------------------------------------------------------------------- */
-
-  useFrame((state, delta) => {
-    if (!group.current) return;
-
-    const time = state.clock.elapsedTime;
-
-    /*
-      STRONG FULL-SCREEN RESPONSE
-
-      The previous version mainly reacted when the cursor was
-      over the left panel.
-
-      Now the pointer values come from the whole browser window,
-      so moving across the right login panel also moves the Boss.
-    */
-
-    const targetRotationY = mouse.x * 0.62;
-    const targetRotationX = mouse.y * -0.20;
-
-    group.current.rotation.y = THREE.MathUtils.damp(
-      group.current.rotation.y,
-      targetRotationY,
-      5.8,
-      delta
-    );
-
-    group.current.rotation.x = THREE.MathUtils.damp(
-      group.current.rotation.x,
-      targetRotationX,
-      5.5,
-      delta
-    );
-
-    /*
-      Much stronger horizontal parallax.
-    */
-    const targetX = mouse.x * 0.68;
-
-    group.current.position.x = THREE.MathUtils.damp(
-      group.current.position.x,
-      targetX,
-      5.5,
-      delta
-    );
-
-    /*
-      Vertical cursor movement.
-    */
-    const targetZ = mouse.y * 0.28;
-
-    group.current.position.z = THREE.MathUtils.damp(
-      group.current.position.z,
-      targetZ,
-      5,
-      delta
-    );
-
-    /*
-      Natural idle floating.
-    */
-    const idleFloat =
-      Math.sin(time * 0.9) * 0.018 +
-      Math.sin(time * 0.43) * 0.012;
-
-    group.current.position.y = THREE.MathUtils.damp(
-      group.current.position.y,
-      idleFloat,
-      3.8,
-      delta
-    );
-
-    /*
-      Body sway follows pointer.
-    */
-    if (character.current) {
-      const bodyRotationZ =
-        mouse.x * 0.08 +
-        Math.sin(time * 0.65) * 0.012;
-
-      character.current.rotation.z = THREE.MathUtils.damp(
-        character.current.rotation.z,
-        bodyRotationZ,
-        4.5,
-        delta
-      );
-
-      const bodyRotationX =
-        mouse.y * -0.045;
-
-      character.current.rotation.x = THREE.MathUtils.damp(
-        character.current.rotation.x,
-        bodyRotationX,
-        4.5,
-        delta
-      );
-    }
-  });
+  }, [cursorX, cursorY]);
 
   return (
-    <group ref={group}>
-      <group
-        ref={character}
-        position={[
-          modelTransform.x,
-          modelTransform.y,
-          modelTransform.z,
-        ]}
-        scale={[
-          modelTransform.scale,
-          modelTransform.scale,
-          modelTransform.scale,
-        ]}
-      >
-        <primitive object={scene} />
-      </group>
-    </group>
+    <>
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 pointer-events-none"
+        style={{ display: "none" }}
+      />
+
+      <div
+        className="absolute inset-0 z-20 pointer-events-none bg-center bg-cover bg-no-repeat"
+        style={{
+          backgroundImage: `url("${image}")`,
+          maskImage: maskUrl ? `url("${maskUrl}")` : "none",
+          WebkitMaskImage: maskUrl ? `url("${maskUrl}")` : "none",
+          maskSize: "100% 100%",
+          WebkitMaskSize: "100% 100%",
+          maskRepeat: "no-repeat",
+          WebkitMaskRepeat: "no-repeat",
+        }}
+      />
+    </>
   );
 }
 
-useGLTF.preload(MODEL_URL);
-
-/* ========================================================================= */
-/* BOSS SCENE                                                               */
-/* ========================================================================= */
-
-function BossScene({ mouse }) {
+function RareFictionMark() {
   return (
-    <Canvas
-      dpr={[1, 1.5]}
-      camera={{
-        position: [0, 1.1, 7.4],
-        fov: 31,
-        near: 0.1,
-        far: 100,
-      }}
-      gl={{
-        antialias: true,
-        alpha: true,
-        powerPreference: "high-performance",
-      }}
-      onCreated={({ gl }) => {
-        gl.setClearColor(0x000000, 0);
-      }}
-      style={{
-        width: "100%",
-        height: "100%",
-        pointerEvents: "none",
-      }}
-    >
-      <ambientLight intensity={1.5} />
-
-      <directionalLight
-        position={[4, 7, 6]}
-        intensity={2.25}
-      />
-
-      <directionalLight
-        position={[-5, 3, 4]}
-        intensity={1.25}
-      />
-
-      <pointLight
-        position={[0, 2.5, 3]}
-        intensity={1.8}
-        distance={9}
-      />
-
-      <pointLight
-        position={[-3, 1, -2]}
-        intensity={0.75}
-        distance={7}
-      />
-
-      <Suspense fallback={null}>
-        <BossModel mouse={mouse} />
-
-        <Environment
-          preset="studio"
-          environmentIntensity={0.65}
-        />
-      </Suspense>
-    </Canvas>
-  );
-}
-
-/* ========================================================================= */
-/* PRODUCTION CARD                                                           */
-/* ========================================================================= */
-
-function ProductionCard({
-  number,
-  eyebrow,
-  title,
-  className = "",
-  style,
-}) {
-  return (
-    <div
-      className={`
-        pointer-events-none
-        absolute
-        z-40
-        w-[132px]
-        rounded-[16px]
-        border
-        border-white/[0.13]
-        bg-[#171918]/90
-        p-3.5
-        shadow-[0_18px_50px_rgba(0,0,0,0.4)]
-        backdrop-blur-xl
-        transition-transform
-        duration-300
-        ease-out
-        sm:w-[140px]
-        sm:p-4
-        ${className}
-      `}
-      style={style}
-    >
-      <div className="flex items-center justify-between">
-        <span className="text-[8px] font-medium tracking-[0.16em] text-white/35">
-          {number}
-        </span>
-
-        <span className="h-1.5 w-1.5 rounded-full bg-[#ffad5b] shadow-[0_0_12px_rgba(255,173,91,0.85)]" />
+    <div className="flex items-center gap-3">
+      <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/30 bg-white/10 backdrop-blur-md">
+        <span className="absolute h-px w-5 bg-white/80" />
+        <span className="absolute h-5 w-px bg-white/80" />
+        <span className="absolute h-3 w-3 rotate-45 border border-white/90" />
       </div>
 
-      <div className="mt-3 text-[7px] font-medium uppercase tracking-[0.22em] text-[#d69b61]">
-        {eyebrow}
-      </div>
-
-      <div className="mt-1.5 text-[14px] font-medium tracking-tight text-white">
-        {title}
-      </div>
-
-      <div className="mt-3.5 h-px w-full bg-white/10">
-        <div className="h-px w-[58%] bg-[#d69b61]" />
+      <div>
+        <p className="text-[15px] font-semibold leading-none tracking-[-0.03em] text-white">
+          rare fiction media
+        </p>
+        <p className="mt-1 text-[9px] uppercase tracking-[0.22em] text-white/50">
+          Creative Operations
+        </p>
       </div>
     </div>
   );
 }
 
-/* ========================================================================= */
-/* LOGIN                                                                    */
-/* ========================================================================= */
-
 function Login() {
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const mouse = useRef({ x: -999, y: -999 });
+  const smooth = useRef({ x: -999, y: -999 });
+  const rafRef = useRef(null);
 
-  const [mouse, setMouse] = useState({
-    x: 0,
-    y: 0,
+  const [cursorPos, setCursorPos] = useState({
+    x: -999,
+    y: -999,
   });
 
-  /* ----------------------------------------------------------------------- */
-  /* GLOBAL POINTER TRACKING                                                 */
-  /* ----------------------------------------------------------------------- */
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    let animationFrame = null;
-
-    const handlePointerMove = (event) => {
-      if (animationFrame) {
-        cancelAnimationFrame(animationFrame);
-      }
-
-      animationFrame = requestAnimationFrame(() => {
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-
-        /*
-          Normalize the pointer across the ENTIRE browser window.
-
-          -1 = far left
-          +1 = far right
-        */
-        const normalizedX =
-          (event.clientX / width) * 2 - 1;
-
-        const normalizedY =
-          (event.clientY / height) * 2 - 1;
-
-        setMouse({
-          x: THREE.MathUtils.clamp(
-            normalizedX,
-            -1,
-            1
-          ),
-          y: THREE.MathUtils.clamp(
-            normalizedY,
-            -1,
-            1
-          ),
-        });
-      });
+    const handleMouseMove = (event) => {
+      mouse.current.x = event.clientX;
+      mouse.current.y = event.clientY;
     };
 
-    const handlePointerLeave = () => {
-      setMouse({
-        x: 0,
-        y: 0,
+    window.addEventListener("mousemove", handleMouseMove);
+
+    const animate = () => {
+      smooth.current.x += (mouse.current.x - smooth.current.x) * 0.1;
+      smooth.current.y += (mouse.current.y - smooth.current.y) * 0.1;
+
+      setCursorPos({
+        x: smooth.current.x,
+        y: smooth.current.y,
       });
+
+      rafRef.current = requestAnimationFrame(animate);
     };
 
-    window.addEventListener(
-      "pointermove",
-      handlePointerMove,
-      { passive: true }
-    );
-
-    window.addEventListener(
-      "pointerleave",
-      handlePointerLeave
-    );
+    rafRef.current = requestAnimationFrame(animate);
 
     return () => {
-      if (animationFrame) {
-        cancelAnimationFrame(animationFrame);
+      window.removeEventListener("mousemove", handleMouseMove);
+
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
       }
-
-      window.removeEventListener(
-        "pointermove",
-        handlePointerMove
-      );
-
-      window.removeEventListener(
-        "pointerleave",
-        handlePointerLeave
-      );
     };
   }, []);
-
-  /* ----------------------------------------------------------------------- */
-  /* EXISTING LOGIN LOGIC — UNCHANGED                                        */
-  /* ----------------------------------------------------------------------- */
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -474,837 +184,230 @@ function Login() {
       navigate("/");
     } catch (error) {
       console.error("Login error:", error);
-
       setError("Invalid email or password.");
     } finally {
       setLoading(false);
     }
   };
 
-  /* ----------------------------------------------------------------------- */
-  /* CARD PARALLAX                                                           */
-  /* ----------------------------------------------------------------------- */
-
-  const cardMotion = useMemo(
-    () => ({
-      brief: {
-        transform: `
-          translate3d(
-            ${mouse.x * 13}px,
-            ${mouse.y * 9}px,
-            0
-          )
-          rotate(-7deg)
-        `,
-      },
-
-      shoot: {
-        transform: `
-          translate3d(
-            ${mouse.x * -13}px,
-            ${mouse.y * 10}px,
-            0
-          )
-          rotate(6deg)
-        `,
-      },
-
-      edit: {
-        transform: `
-          translate3d(
-            ${mouse.x * 16}px,
-            ${mouse.y * -9}px,
-            0
-          )
-          rotate(7deg)
-        `,
-      },
-
-      review: {
-        transform: `
-          translate3d(
-            ${mouse.x * -14}px,
-            ${mouse.y * -9}px,
-            0
-          )
-          rotate(-5deg)
-        `,
-      },
-    }),
-    [mouse]
-  );
-
   return (
     <main
-      className="
-        fixed
-        inset-0
-        h-[100dvh]
-        w-full
-        overflow-hidden
-        bg-[#0a0b0b]
-      "
+      className="min-h-screen overflow-hidden bg-black tracking-[-0.02em]"
+      style={{ fontFamily: "'Inter', sans-serif" }}
     >
-      <div
-        className="
-          flex
-          h-full
-          w-full
-          flex-col
-          lg:flex-row
-        "
+      <section
+        className="relative h-screen w-full overflow-hidden bg-black"
+        style={{ height: "100dvh" }}
       >
+        {/* Base visual */}
+        <div
+          className="absolute inset-0 z-10 bg-center bg-cover bg-no-repeat hero-zoom"
+          style={{
+            backgroundImage: `url("${BG_IMAGE_1}")`,
+          }}
+        />
 
-        {/* =============================================================== */}
-        {/* LEFT CREATIVE SIDE                                               */}
-        {/* =============================================================== */}
+        {/* Cursor spotlight / second visual */}
+        <RevealLayer
+          image={BG_IMAGE_2}
+          cursorX={cursorPos.x}
+          cursorY={cursorPos.y}
+        />
 
-        <section
-          className="
-            relative
-            h-[43%]
-            w-full
-            shrink-0
-            overflow-hidden
-            bg-[#090a0a]
-            lg:h-full
-            lg:w-[58%]
-          "
+        {/* Cinematic readability layer */}
+        <div className="absolute inset-0 z-30 bg-black/[0.16]" />
+        <div className="absolute inset-0 z-30 bg-gradient-to-r from-black/50 via-black/10 to-black/45" />
+        <div className="absolute inset-0 z-30 bg-gradient-to-t from-black/65 via-transparent to-black/20" />
+
+        {/* Brand — no navigation */}
+        <div
+          className="absolute left-5 top-5 z-50 sm:left-8 sm:top-7 lg:left-10 lg:top-8 hero-anim hero-fade"
+          style={{ animationDelay: "0.15s" }}
         >
-          {/* Grid */}
-          <div
-            className="
-              pointer-events-none
-              absolute
-              inset-0
-              opacity-[0.14]
-            "
-            style={{
-              backgroundImage: `
-                linear-gradient(
-                  rgba(255,255,255,0.08) 1px,
-                  transparent 1px
-                ),
-                linear-gradient(
-                  90deg,
-                  rgba(255,255,255,0.08) 1px,
-                  transparent 1px
-                )
-              `,
-              backgroundSize: "42px 42px",
-            }}
-          />
+          <RareFictionMark />
+        </div>
 
-          {/* Orange glow */}
-          <div
-            className="
-              pointer-events-none
-              absolute
-              left-[45%]
-              top-[54%]
-              h-[380px]
-              w-[380px]
-              -translate-x-1/2
-              -translate-y-1/2
-              rounded-full
-              bg-[#c76b29]/20
-              blur-[100px]
-              lg:h-[500px]
-              lg:w-[500px]
-            "
-          />
-
-          {/* Green glow */}
-          <div
-            className="
-              pointer-events-none
-              absolute
-              bottom-[-170px]
-              left-[-100px]
-              h-[320px]
-              w-[320px]
-              rounded-full
-              bg-[#145447]/20
-              blur-[100px]
-            "
-          />
-
-          {/* Orbit */}
-          <div
-            className="
-              pointer-events-none
-              absolute
-              left-[8%]
-              top-[18%]
-              h-[420px]
-              w-[420px]
-              rounded-full
-              border
-              border-white/[0.05]
-              lg:left-[4%]
-              lg:top-[12%]
-              lg:h-[680px]
-              lg:w-[680px]
-            "
-          />
-
-          <div
-            className="
-              pointer-events-none
-              absolute
-              left-[18%]
-              top-[29%]
-              h-[290px]
-              w-[290px]
-              rounded-full
-              border
-              border-white/[0.035]
-              lg:left-[14%]
-              lg:top-[23%]
-              lg:h-[470px]
-              lg:w-[470px]
-            "
-          />
-
-          {/* ============================================================= */}
-          {/* BRAND                                                          */}
-          {/* ============================================================= */}
-
-          <div
-            className="
-              absolute
-              left-5
-              top-4
-              z-50
-              flex
-              items-center
-              gap-2.5
-              lg:left-12
-              lg:top-9
-            "
+        {/* Main brand statement */}
+        <div className="absolute left-5 right-5 top-[16%] z-50 sm:left-10 sm:right-auto sm:top-[18%] lg:left-14 lg:top-[17%]">
+          <p
+            className="hero-anim hero-fade text-[10px] font-semibold uppercase tracking-[0.3em] text-white/65 sm:text-[11px]"
+            style={{ animationDelay: "0.28s" }}
           >
-            <div
-              className="
-                flex
-                h-8
-                w-8
-                items-center
-                justify-center
-                rounded-[10px]
-                border
-                border-white/15
-                bg-white/[0.045]
-                text-[9px]
-                font-semibold
-                text-white
-                lg:h-11
-                lg:w-11
-                lg:rounded-[14px]
-                lg:text-[13px]
-              "
+            Rare Fiction Media
+          </p>
+
+          <h1 className="mt-4 max-w-[680px] text-white">
+            <span
+              className="hero-anim hero-reveal block font-playfair text-5xl font-normal italic leading-[0.88] sm:text-7xl md:text-8xl lg:text-[7.2rem]"
+              style={{
+                letterSpacing: "-0.065em",
+                animationDelay: "0.35s",
+              }}
             >
-              RF
-            </div>
+              Create.
+            </span>
 
-            <div>
-              <div className="text-[9px] font-semibold tracking-[0.25em] text-white lg:text-[13px] lg:tracking-[0.27em]">
-                RARE FICTION
-              </div>
-
-              <div className="mt-0.5 text-[6px] tracking-[0.3em] text-white/35 lg:mt-1 lg:text-[9px]">
-                MEDIA
-              </div>
-            </div>
-          </div>
-
-          {/* ============================================================= */}
-          {/* CREATIVE TITLE                                                 */}
-          {/* ============================================================= */}
-
-          <div
-            className="
-              absolute
-              left-5
-              top-[74px]
-              z-40
-              lg:left-12
-              lg:top-[128px]
-            "
-          >
-            <div className="mb-2.5 flex items-center gap-2 lg:mb-5 lg:gap-3">
-              <span className="h-px w-5 bg-[#e5a05c] lg:w-9" />
-
-              <span className="text-[6px] font-medium uppercase tracking-[0.27em] text-[#e5a05c] lg:text-[9px] lg:tracking-[0.31em]">
-                Creative operations
-              </span>
-            </div>
-
-            <h1
-              className="
-                select-none
-                text-[30px]
-                font-semibold
-                leading-[0.86]
-                tracking-[-0.06em]
-                text-white
-                sm:text-[42px]
-                lg:text-[76px]
-                xl:text-[88px]
-              "
+            <span
+              className="hero-anim hero-reveal -mt-1 block text-5xl font-normal leading-[0.88] sm:text-7xl md:text-8xl lg:text-[7.2rem]"
+              style={{
+                letterSpacing: "-0.085em",
+                animationDelay: "0.48s",
+              }}
             >
-              <span className="block">
-                Create.
-              </span>
+              Collaborate.
+            </span>
 
-              <span className="block text-white/85">
-                Collaborate.
-              </span>
-
-              <span className="block text-[#ffad5b]">
-                Deliver.
-              </span>
-            </h1>
-          </div>
-
-          {/* ============================================================= */}
-          {/* BOSS                                                          */}
-          {/* ============================================================= */}
-
-          <div
-            className="
-              pointer-events-none
-              absolute
-              inset-0
-              z-10
-            "
-          >
-            <BossScene mouse={mouse} />
-          </div>
-
-          {/* ============================================================= */}
-          {/* DESKTOP FLOATING CARDS                                        */}
-          {/* ============================================================= */}
-
-          <div className="hidden lg:block">
-            <ProductionCard
-              number="01"
-              eyebrow="Production"
-              title="Brief"
-              className="
-                left-[47%]
-                top-[53%]
-              "
-              style={cardMotion.brief}
-            />
-
-            <ProductionCard
-              number="02"
-              eyebrow="Production"
-              title="Shoot"
-              className="
-                right-[6%]
-                top-[48%]
-              "
-              style={cardMotion.shoot}
-            />
-
-            <ProductionCard
-              number="03"
-              eyebrow="Post"
-              title="Edit"
-              className="
-                bottom-[12%]
-                left-[6%]
-              "
-              style={cardMotion.edit}
-            />
-
-            <ProductionCard
-              number="04"
-              eyebrow="Approval"
-              title="Review"
-              className="
-                bottom-[10%]
-                right-[17%]
-              "
-              style={cardMotion.review}
-            />
-          </div>
-
-          {/* ============================================================= */}
-          {/* MOBILE MINI CARDS                                             */}
-          {/* ============================================================= */}
-
-          <div className="lg:hidden">
-            <div
-              className="
-                absolute
-                bottom-3
-                left-4
-                z-50
-                flex
-                gap-1.5
-              "
+            <span
+              className="hero-anim hero-reveal -mt-1 block text-5xl font-normal leading-[0.88] sm:text-7xl md:text-8xl lg:text-[7.2rem]"
+              style={{
+                letterSpacing: "-0.085em",
+                animationDelay: "0.61s",
+              }}
             >
-              {[
-                ["01", "BRIEF"],
-                ["02", "SHOOT"],
-                ["03", "EDIT"],
-              ].map(([number, label]) => (
-                <div
-                  key={label}
-                  className="
-                    rounded-full
-                    border
-                    border-white/10
-                    bg-white/[0.035]
-                    px-2.5
-                    py-1
-                    text-[6px]
-                    font-medium
-                    tracking-[0.14em]
-                    text-white/45
-                    backdrop-blur-md
-                  "
-                >
-                  {number} {label}
-                </div>
-              ))}
-            </div>
-          </div>
+              Deliver.
+            </span>
+          </h1>
+        </div>
 
-          {/* ============================================================= */}
-          {/* WORKSPACE STATUS                                              */}
-          {/* ============================================================= */}
-
-          <div
-            className="
-              absolute
-              bottom-3
-              right-4
-              z-50
-              flex
-              items-center
-              gap-1.5
-              lg:bottom-8
-              lg:left-12
-              lg:right-auto
-            "
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-[#00d99b] shadow-[0_0_10px_rgba(0,217,155,0.9)] lg:h-2 lg:w-2" />
-
-            <span className="text-[6px] font-medium uppercase tracking-[0.2em] text-white/40 lg:text-[9px] lg:tracking-[0.23em]">
-              Creative workspace
+        {/* Workspace context */}
+        <div
+          className="absolute bottom-7 left-5 z-50 hidden max-w-[290px] sm:bottom-10 sm:left-8 sm:block lg:bottom-12 lg:left-14 hero-anim hero-fade"
+          style={{ animationDelay: "0.82s" }}
+        >
+          <div className="mb-4 flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#e8702a] shadow-[0_0_12px_rgba(232,112,42,0.8)]" />
+            <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-white/55">
+              Internal workspace
             </span>
           </div>
-        </section>
 
-        {/* =============================================================== */}
-        {/* RIGHT LOGIN SIDE                                                 */}
-        {/* =============================================================== */}
+          <p className="text-sm leading-relaxed text-white/75">
+            One workspace for briefs, shoots, edits, reviews, approvals and
+            everything that turns an idea into something worth delivering.
+          </p>
+        </div>
 
-        <section
-          className="
-            relative
-            h-[57%]
-            w-full
-            shrink-0
-            overflow-hidden
-            bg-[#f3eee5]
-            lg:h-full
-            lg:w-[42%]
-          "
+        {/* Login card */}
+        <div
+          id="workspace-login"
+          className="absolute bottom-5 left-5 right-5 z-[80] sm:bottom-8 sm:left-auto sm:right-8 sm:w-[390px] lg:right-12 lg:w-[410px] xl:right-16"
         >
-          {/* Background glow */}
           <div
-            className="
-              pointer-events-none
-              absolute
-              right-[-130px]
-              top-[-130px]
-              h-[330px]
-              w-[330px]
-              rounded-full
-              bg-[#e6bf8e]/20
-              blur-[90px]
-            "
-          />
-
-          <div
-            className="
-              pointer-events-none
-              absolute
-              bottom-[-150px]
-              left-[-130px]
-              h-[300px]
-              w-[300px]
-              rounded-full
-              border
-              border-[#c6a77d]/10
-            "
-          />
-
-          <div
-            className="
-              relative
-              mx-auto
-              flex
-              h-full
-              w-full
-              max-w-[590px]
-              flex-col
-              justify-center
-              px-5
-              py-5
-              sm:px-8
-              lg:px-10
-              xl:px-12
-            "
+            className="hero-anim hero-fade rounded-[28px] border border-white/55 bg-[#f7f4ed]/[0.96] p-6 shadow-[0_30px_100px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-8"
+            style={{ animationDelay: "0.9s" }}
           >
-            {/* =========================================================== */}
-            {/* PRIVATE WORKSPACE                                           */}
-            {/* =========================================================== */}
+            <div className="mb-7">
+              <div className="mb-5 flex items-center justify-between">
+                <span className="rounded-full border border-black/10 bg-black/[0.04] px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-black/55">
+                  Private access
+                </span>
 
-            <div
-              className="
-                absolute
-                right-5
-                top-4
-                text-right
-                lg:right-10
-                lg:top-8
-              "
-            >
-              <div className="text-[6px] font-medium uppercase tracking-[0.27em] text-[#7190b5] lg:text-[8px]">
-                Private workspace
+                <span className="flex items-center gap-1.5 text-[9px] font-medium uppercase tracking-[0.16em] text-black/40">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#e8702a]" />
+                  RFM OS
+                </span>
               </div>
 
-              <div className="mt-0.5 text-[7px] text-[#9eabbc] lg:mt-1 lg:text-[9px]">
-                Rare Fiction OS
-              </div>
-            </div>
-
-            {/* =========================================================== */}
-            {/* HEADING                                                      */}
-            {/* =========================================================== */}
-
-            <div className="mb-3.5 lg:mb-5">
-              <div className="mb-1.5 text-[7px] font-medium uppercase tracking-[0.25em] text-[#7190b5] lg:mb-2.5 lg:text-[9px]">
-                Welcome back
-              </div>
-
-              <h2
-                className="
-                  max-w-[440px]
-                  text-[24px]
-                  font-semibold
-                  leading-[0.98]
-                  tracking-[-0.045em]
-                  text-[#0c1022]
-                  sm:text-[28px]
-                  lg:text-[38px]
-                  xl:text-[41px]
-                "
-              >
-                Sign in to your
-                <br />
-                workspace.
+              <h2 className="text-[2.2rem] font-medium leading-none tracking-[-0.065em] text-[#151515] sm:text-[2.55rem]">
+                Welcome back.
               </h2>
 
-              <p
-                className="
-                  mt-2
-                  max-w-[430px]
-                  text-[9px]
-                  leading-4
-                  text-[#315379]
-                  sm:text-[10px]
-                  lg:mt-3
-                  lg:text-[12px]
-                  lg:leading-5
-                "
-              >
-                Use your company account to access the Rare Fiction
-                creative workspace.
+              <p className="mt-3 max-w-[290px] text-sm leading-relaxed text-black/50">
+                Sign in to your Rare Fiction Media workspace.
               </p>
             </div>
 
-            {/* =========================================================== */}
-            {/* FORM CARD                                                    */}
-            {/* =========================================================== */}
-
-            <form
-              onSubmit={handleSubmit}
-              className="
-                relative
-                w-full
-                rounded-[20px]
-                border
-                border-white
-                bg-white/90
-                p-4
-                shadow-[0_22px_60px_rgba(38,43,50,0.11)]
-                backdrop-blur-xl
-                sm:p-5
-                lg:rounded-[24px]
-                lg:p-6
-              "
-            >
-              {/* EMAIL */}
-              <div className="mb-2 flex items-center justify-between">
-                <label className="text-[9px] font-semibold text-[#132849] lg:text-[11px]">
-                  Email
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+              <div>
+                <label
+                  htmlFor="email"
+                  className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.14em] text-black/55"
+                >
+                  Work email
                 </label>
 
-                <span className="text-[6px] uppercase tracking-[0.16em] text-[#c1ccdb] lg:text-[8px] lg:tracking-[0.18em]">
-                  Company account
-                </span>
-              </div>
-
-              <div className="relative">
-                <span
-                  className="
-                    pointer-events-none
-                    absolute
-                    left-3.5
-                    top-1/2
-                    h-2
-                    w-2
-                    -translate-y-1/2
-                    rounded-full
-                    border
-                    border-[#b7c7dd]
-                    lg:left-4
-                  "
-                />
-
                 <input
+                  id="email"
+                  name="email"
                   type="email"
-                  value={email}
-                  onChange={(event) =>
-                    setEmail(event.target.value)
-                  }
-                  placeholder="you@company.com"
                   autoComplete="email"
-                  className="
-                    h-[46px]
-                    w-full
-                    rounded-[13px]
-                    border
-                    border-[#dbe4ef]
-                    bg-[#eaf1fc]
-                    px-9
-                    text-[11px]
-                    text-[#111827]
-                    outline-none
-                    transition-all
-                    duration-200
-                    placeholder:text-[#7890ae]
-                    focus:border-[#aebfd7]
-                    focus:bg-white
-                    focus:ring-4
-                    focus:ring-[#d0ddec]/40
-                    lg:h-[54px]
-                    lg:rounded-[15px]
-                    lg:px-10
-                    lg:text-[13px]
-                  "
+                  inputMode="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  disabled={loading}
+                  placeholder="you@rarefictionmedia.com"
+                  className="w-full rounded-2xl border border-black/[0.10] bg-white/75 px-4 py-3.5 text-sm text-[#151515] outline-none transition-all placeholder:text-black/25 focus:border-black/25 focus:bg-white focus:ring-4 focus:ring-black/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
 
-              {/* PASSWORD */}
-              <div className="mb-2 mt-3.5 flex items-center justify-between lg:mt-5">
-                <label className="text-[9px] font-semibold text-[#132849] lg:text-[11px]">
+              <div>
+                <label
+                  htmlFor="password"
+                  className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.14em] text-black/55"
+                >
                   Password
                 </label>
 
-                <span className="text-[6px] uppercase tracking-[0.16em] text-[#c1ccdb] lg:text-[8px] lg:tracking-[0.18em]">
-                  Protected
-                </span>
-              </div>
-
-              <div className="relative">
-                <span
-                  className="
-                    pointer-events-none
-                    absolute
-                    left-3.5
-                    top-1/2
-                    h-2
-                    w-2
-                    -translate-y-1/2
-                    rounded-full
-                    border
-                    border-[#b7c7dd]
-                    lg:left-4
-                  "
-                />
-
                 <input
+                  id="password"
+                  name="password"
                   type="password"
-                  value={password}
-                  onChange={(event) =>
-                    setPassword(event.target.value)
-                  }
-                  placeholder="Enter your password"
                   autoComplete="current-password"
-                  className="
-                    h-[46px]
-                    w-full
-                    rounded-[13px]
-                    border
-                    border-[#dbe4ef]
-                    bg-[#eaf1fc]
-                    px-9
-                    text-[11px]
-                    text-[#111827]
-                    outline-none
-                    transition-all
-                    duration-200
-                    placeholder:text-[#7890ae]
-                    focus:border-[#aebfd7]
-                    focus:bg-white
-                    focus:ring-4
-                    focus:ring-[#d0ddec]/40
-                    lg:h-[54px]
-                    lg:rounded-[15px]
-                    lg:px-10
-                    lg:text-[13px]
-                  "
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  disabled={loading}
+                  placeholder="Enter your password"
+                  className="w-full rounded-2xl border border-black/[0.10] bg-white/75 px-4 py-3.5 text-sm text-[#151515] outline-none transition-all placeholder:text-black/25 focus:border-black/25 focus:bg-white focus:ring-4 focus:ring-black/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
 
-              {/* ERROR */}
               {error && (
                 <div
-                  className="
-                    mt-2.5
-                    rounded-[10px]
-                    border
-                    border-red-200
-                    bg-red-50
-                    px-3
-                    py-2
-                    text-[9px]
-                    font-medium
-                    text-red-700
-                    lg:mt-3
-                    lg:rounded-[12px]
-                    lg:px-3.5
-                    lg:py-2.5
-                    lg:text-[11px]
-                  "
+                  role="alert"
+                  className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs leading-relaxed text-red-700"
                 >
                   {error}
                 </div>
               )}
 
-              {/* ========================================================= */}
-              {/* SIGN IN BUTTON                                             */}
-              {/* ========================================================= */}
-
               <button
                 type="submit"
                 disabled={loading}
-                className="
-                  group
-                  relative
-                  mt-3.5
-                  flex
-                  h-[48px]
-                  w-full
-                  items-center
-                  justify-center
-                  overflow-hidden
-                  rounded-[13px]
-                  bg-[#151515]
-                  text-[11px]
-                  font-semibold
-                  text-white
-                  shadow-[0_15px_30px_rgba(0,0,0,0.17)]
-                  transition-all
-                  duration-300
-                  hover:-translate-y-0.5
-                  hover:bg-[#080808]
-                  hover:shadow-[0_20px_40px_rgba(0,0,0,0.22)]
-                  active:translate-y-0
-                  disabled:cursor-not-allowed
-                  disabled:opacity-60
-                  lg:mt-5
-                  lg:h-[55px]
-                  lg:rounded-[15px]
-                  lg:text-[13px]
-                "
+                className="group mt-1 flex w-full items-center justify-between rounded-full bg-[#171717] px-5 py-3.5 text-sm font-semibold text-white transition-all hover:bg-black hover:shadow-xl hover:shadow-black/15 active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <span
-                  className="
-                    pointer-events-none
-                    absolute
-                    inset-y-0
-                    -left-24
-                    w-24
-                    skew-x-[-20deg]
-                    bg-white/10
-                    transition-all
-                    duration-700
-                    group-hover:left-[120%]
-                  "
-                />
+                <span>{loading ? "Signing in..." : "Enter workspace"}</span>
 
-                <span className="relative">
-                  {loading ? "Signing in..." : "Sign in"}
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-base transition-transform group-hover:translate-x-0.5">
+                  →
                 </span>
-
-                {!loading && (
-                  <span
-                    className="
-                      relative
-                      ml-2
-                      text-white/45
-                      transition-all
-                      duration-300
-                      group-hover:translate-x-1
-                      group-hover:text-white
-                      lg:ml-3
-                    "
-                  >
-                    →
-                  </span>
-                )}
               </button>
-
-              {/* STATUS */}
-              <div className="mt-2.5 flex items-center justify-between lg:mt-4">
-                <div className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#00c98c] shadow-[0_0_9px_rgba(0,201,140,0.7)]" />
-
-                  <span className="text-[6px] font-medium uppercase tracking-[0.16em] text-[#7890ad] lg:text-[8px] lg:tracking-[0.18em]">
-                    Company access only
-                  </span>
-                </div>
-
-                <span className="text-[6px] uppercase tracking-[0.16em] text-[#c1cad6] lg:text-[8px] lg:tracking-[0.18em]">
-                  RF / OS
-                </span>
-              </div>
             </form>
 
-            {/* =========================================================== */}
-            {/* FOOTER                                                       */}
-            {/* =========================================================== */}
-
-            <div className="mt-2 flex items-center justify-center gap-2 lg:mt-3 lg:gap-3">
-              <span className="h-px w-4 bg-[#d6d9dd] lg:w-7" />
-
-              <span className="text-[6px] text-[#7c91aa] lg:text-[8px]">
-                Access is provided by your organization.
-              </span>
-
-              <span className="h-px w-4 bg-[#d6d9dd] lg:w-7" />
+            <div className="mt-5 border-t border-black/[0.08] pt-4">
+              <p className="text-center text-[10px] leading-relaxed text-black/35">
+                This is a private company workspace. Access is limited to
+                authorized Rare Fiction Media team members.
+              </p>
             </div>
           </div>
-        </section>
-      </div>
+        </div>
+
+        {/* Small screen footer */}
+        <div className="absolute bottom-5 left-5 z-50 sm:hidden">
+          <p className="text-[9px] uppercase tracking-[0.2em] text-white/45">
+            Rare Fiction Media · Internal
+          </p>
+        </div>
+
+        {/* Cursor hint */}
+        <div className="pointer-events-none absolute bottom-6 right-6 z-50 hidden items-center gap-2 md:flex">
+          <span className="text-[9px] uppercase tracking-[0.2em] text-white/35">
+            Move cursor
+          </span>
+          <span className="h-px w-8 bg-white/20" />
+          <span className="h-1.5 w-1.5 rounded-full bg-white/50" />
+        </div>
+      </section>
     </main>
   );
 }

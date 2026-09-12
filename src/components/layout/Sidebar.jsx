@@ -83,140 +83,192 @@ export default function Sidebar() {
     .toUpperCase();
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 hidden w-[260px] flex-col border-r border-white/[0.06] bg-[#111214] text-white md:flex">
+    <aside
+      className="
+        fixed inset-y-0 left-0 z-40 hidden w-[272px] md:flex
+        flex-col overflow-hidden
+        bg-[#0b100e]/[0.96]
+        text-white
+        border-r border-white/[0.08]
+        shadow-[24px_0_70px_rgba(5,10,8,0.22)]
+        backdrop-blur-2xl
+      "
+    >
+      {/* Subtle liquid-glass atmosphere */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -left-24 -top-24 h-64 w-64 rounded-full bg-white/[0.035] blur-3xl" />
+        <div className="absolute -bottom-32 -right-20 h-72 w-72 rounded-full bg-[#f47732]/[0.055] blur-3xl" />
 
-      {/* BRAND */}
-      <div className="flex h-[76px] items-center border-b border-white/[0.06] px-5">
-        <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-[11px] bg-white text-[11px] font-extrabold tracking-tight text-[#111214] shadow-sm">
-            RF
-          </div>
+        <div
+          className="absolute inset-0 opacity-[0.18]"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px)",
+            backgroundSize: "46px 46px",
+          }}
+        />
 
-          <div className="leading-tight">
-            <p className="text-[14px] font-semibold tracking-[-0.01em]">
-              Rare Fiction
-            </p>
-
-            <p className="mt-1 text-[11px] text-white/40">
-              Creative Operations
-            </p>
-          </div>
-        </div>
+        <div className="absolute right-0 top-0 h-full w-px bg-gradient-to-b from-transparent via-white/[0.12] to-transparent" />
       </div>
 
-      {/* NAVIGATION */}
-      <nav className="flex-1 overflow-y-auto px-3 py-6 [scrollbar-width:thin]">
-
-        {sections.map(([title, items]) =>
-          items.length ? (
-            <div key={title} className="mb-7 last:mb-0">
-
-              <div className="mb-2 px-3">
-                <p className="text-[10px] font-semibold tracking-[0.18em] text-white/30">
-                  {title}
-                </p>
-              </div>
-
-              <div className="space-y-1">
-                {items.map(([label, path, Icon]) => (
-                  <NavLink
-                    key={path}
-                    to={path}
-                    className={({ isActive }) =>
-                      [
-                        "group relative flex h-10 items-center gap-3 rounded-[10px] px-3",
-                        "text-[13px] font-medium transition-all duration-150",
-                        isActive
-                          ? "bg-white/[0.09] text-white"
-                          : "text-white/55 hover:bg-white/[0.045] hover:text-white/90",
-                      ].join(" ")
-                    }
-                  >
-                    {({ isActive }) => (
-                      <>
-                        {/* ACTIVE INDICATOR */}
-                        <span
-                          className={[
-                            "absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full transition",
-                            isActive
-                              ? "bg-white"
-                              : "bg-transparent",
-                          ].join(" ")}
-                        />
-
-                        <Icon
-                          size={17}
-                          strokeWidth={isActive ? 2 : 1.7}
-                          className={
-                            isActive
-                              ? "text-white"
-                              : "text-white/40 group-hover:text-white/70"
-                          }
-                        />
-
-                        <span className="flex-1">
-                          {label}
-                        </span>
-
-                        {isActive && (
-                          <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
-                        )}
-                      </>
-                    )}
-                  </NavLink>
-                ))}
-              </div>
+      <div className="relative z-10 flex h-full min-h-0 flex-col">
+        {/* BRAND */}
+        <div className="px-4 pt-4">
+          <div className="group relative flex h-[72px] items-center gap-3 rounded-[19px] border border-white/[0.11] bg-white/[0.06] px-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,.05)] transition-colors duration-200 hover:bg-white/[0.07]">
+            <div className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-[14px] border border-white/[0.15] bg-white text-[#101512] shadow-[0_8px_24px_rgba(0,0,0,.18)]">
+              <svg
+                viewBox="0 0 40 40"
+                className="h-5 w-5"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path
+                  d="M25.9 3.5H36L26.2 17.1H35L16.2 36.5H5.4L15.2 23H6.4L25.9 3.5Z"
+                  fill="currentColor"
+                />
+              </svg>
             </div>
-          ) : null
-        )}
-      </nav>
 
-      {/* ACCOUNT */}
-      <div className="border-t border-white/[0.06] p-3">
+            <div className="min-w-0 leading-tight">
+              <p className="truncate text-[13px] font-bold uppercase tracking-[0.19em] text-white">
+                Rare Fiction
+              </p>
 
-        <button
-          onClick={() => navigate("/profile")}
-          className="group flex w-full items-center gap-3 rounded-[12px] border border-transparent p-2.5 text-left transition hover:border-white/[0.07] hover:bg-white/[0.045]"
-        >
-          {/* PROFILE PHOTO */}
-          <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white/[0.08] ring-1 ring-white/[0.08]">
-            {profile?.photoURL ? (
-              <img
-                src={profile.photoURL}
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="grid h-full w-full place-items-center text-xs font-semibold text-white/60">
-                {initials}
+              <p className="mt-1.5 truncate text-[8px] font-semibold uppercase tracking-[0.30em] text-white/35">
+                Creative Operations
+              </p>
+            </div>
+
+            <span className="absolute right-3 top-3 h-1.5 w-1.5 rounded-full bg-[#f47732] shadow-[0_0_10px_rgba(244,119,50,.75)]" />
+          </div>
+        </div>
+
+        {/* WORKSPACE LABEL */}
+        <div className="relative z-10 px-7 pb-1 pt-8">
+          <div className="flex items-center gap-2">
+            <span className="h-px w-5 bg-[#f47732]" />
+            <span className="text-[8px] font-bold uppercase tracking-[0.32em] text-white/30">
+              RFM OS
+            </span>
+          </div>
+        </div>
+
+        {/* NAVIGATION */}
+        <nav className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 py-3 [scrollbar-color:rgba(255,255,255,.12)_transparent] [scrollbar-width:thin]">
+          {sections.map(([title, items]) =>
+            items.length ? (
+              <div key={title} className="mb-7 last:mb-0">
+                <div className="mb-2.5 px-3">
+                  <p className="text-[8px] font-bold tracking-[0.25em] text-white/25">
+                    {title}
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  {items.map(([label, path, Icon]) => (
+                    <NavLink
+                      key={path}
+                      to={path}
+                      className={({ isActive }) =>
+                        [
+                          "group relative flex h-[44px] items-center gap-3 rounded-[14px] px-3.5",
+                          "text-[12px] font-medium tracking-[-0.01em] transition-all duration-200",
+                          isActive
+                            ? "border border-white/[0.12] bg-white/[0.10] text-white shadow-[inset_0_1px_0_rgba(255,255,255,.07),0_8px_24px_rgba(0,0,0,.08)]"
+                            : "border border-transparent text-white/45 hover:border-white/[0.07] hover:bg-white/[0.055] hover:text-white/90",
+                        ].join(" ")
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          {/* Active pip inspired by the reference sidebar */}
+                          <span
+                            className={[
+                              "absolute -left-4 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r-full transition-all duration-300",
+                              isActive
+                                ? "bg-white shadow-[0_0_11px_rgba(255,255,255,.65)]"
+                                : "bg-transparent",
+                            ].join(" ")}
+                          />
+
+                          <span
+                            className={[
+                              "grid h-8 w-8 shrink-0 place-items-center rounded-[10px] transition-all duration-200",
+                              isActive
+                                ? "bg-white/[0.10] text-white"
+                                : "bg-transparent text-white/35 group-hover:bg-white/[0.055] group-hover:text-white/70",
+                            ].join(" ")}
+                          >
+                            <Icon
+                              size={16}
+                              strokeWidth={isActive ? 2 : 1.7}
+                            />
+                          </span>
+
+                          <span className="flex-1">{label}</span>
+
+                          {isActive ? (
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#f47732] shadow-[0_0_8px_rgba(244,119,50,.6)]" />
+                          ) : null}
+                        </>
+                      )}
+                    </NavLink>
+                  ))}
+                </div>
               </div>
-            )}
-          </div>
+            ) : null
+          )}
+        </nav>
 
-          {/* USER */}
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-semibold text-white/90">
-              {name}
-            </p>
+        {/* ACCOUNT / PROFILE */}
+        <div className="relative z-10 border-t border-white/[0.08] bg-black/[0.14] p-3.5">
+          <button
+            onClick={() => navigate("/profile")}
+            className="group relative flex w-full items-center gap-3 overflow-hidden rounded-[16px] border border-white/[0.08] bg-white/[0.055] p-2.5 text-left transition-all duration-200 hover:border-white/[0.12] hover:bg-white/[0.075]"
+          >
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
 
-            <p className="mt-0.5 truncate text-[11px] text-white/35">
-              {designation}
-            </p>
-          </div>
+            {/* PROFILE PHOTO */}
+            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white/[0.08] ring-1 ring-white/[0.10]">
+              {profile?.photoURL ? (
+                <img
+                  src={profile.photoURL}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="grid h-full w-full place-items-center text-xs font-semibold text-white/60">
+                  {initials}
+                </div>
+              )}
+            </div>
 
-          <span className="text-white/20 transition group-hover:text-white/50">
-            →
-          </span>
-        </button>
+            {/* USER */}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[12px] font-semibold tracking-[-0.01em] text-white/95">
+                {name}
+              </p>
 
-        {/* SIGN OUT */}
-        <button
-          onClick={logout}
-          className="mt-1.5 flex h-9 w-full items-center gap-3 rounded-[10px] px-3 text-[12px] font-medium text-white/35 transition hover:bg-red-500/[0.08] hover:text-red-300"
-        >
-          <LogOut size={16} strokeWidth={1.8} />
-          Sign out
-        </button>
+              <p className="mt-0.5 truncate text-[9px] uppercase tracking-[0.10em] text-white/30">
+                {designation}
+              </p>
+            </div>
+
+            <span className="text-[15px] text-white/20 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-white/60">
+              →
+            </span>
+          </button>
+
+          {/* SIGN OUT */}
+          <button
+            onClick={logout}
+            className="mt-1.5 flex h-9 w-full items-center gap-3 rounded-[11px] px-3 text-[11px] font-medium text-white/30 transition-all duration-200 hover:bg-red-500/[0.08] hover:text-red-300"
+          >
+            <LogOut size={15} strokeWidth={1.8} />
+            <span>Sign out</span>
+          </button>
+        </div>
       </div>
     </aside>
   );

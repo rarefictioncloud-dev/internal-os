@@ -68,15 +68,15 @@ function Stat({ icon: Icon, label, value, meta, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg"
+      className="group relative overflow-hidden rounded-[22px] border border-black/[0.07] bg-white/75 p-5 text-left shadow-[0_14px_40px_rgba(15,23,42,.06)] backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-black/[0.12] hover:bg-white/90 hover:shadow-[0_20px_55px_rgba(15,23,42,.10)]"
     >
       <div className="flex items-start justify-between">
-        <span className="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 text-slate-700">
+        <span className="grid h-10 w-10 place-items-center rounded-[13px] bg-slate-950 text-white shadow-sm">
           <Icon size={18} />
         </span>
         <ArrowUpRight
           size={16}
-          className="text-slate-300 transition group-hover:text-slate-600"
+          className="text-slate-300 transition group-hover:text-[#319AFF]"
         />
       </div>
 
@@ -497,18 +497,25 @@ export default function Dashboard() {
     profile?.name?.split(" ")[0] || "there";
 
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-[#f7f8fa]">
-      <div className="mx-auto max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+    <>
+      <style>{`@import url("https://fonts.googleapis.com/css2?family=Fustat:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap");`}</style>
+      <div className="min-h-[calc(100vh-64px)] overflow-x-hidden bg-white text-slate-950" style={{ WebkitFontSmoothing: "antialiased" }}>
+        <div className="pointer-events-none fixed inset-0 -z-0 overflow-hidden">
+          <div className="absolute -left-32 -top-40 h-[520px] w-[520px] rounded-full bg-[#60B1FF]/20 blur-[110px]" />
+          <div className="absolute left-[9%] top-[-2%] h-[330px] w-[430px] rounded-full bg-[#319AFF]/10 blur-[100px]" />
+          <div className="absolute right-[-180px] top-[20%] h-[520px] w-[520px] rounded-full bg-sky-100/60 blur-[120px]" />
+        </div>
+      <div className="relative z-10 mx-auto max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
 
         {/* HEADER */}
-        <div className="mb-7 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+        <div className="sticky top-5 z-40 mb-8 flex flex-col gap-5 rounded-[18px] border border-black/10 bg-white/55 px-5 py-4 shadow-[inset_0_4px_4px_rgba(255,255,255,.55),0_18px_50px_rgba(15,23,42,.08)] backdrop-blur-[50px] xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[.16em] text-slate-400">
+            <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.22em] text-slate-400">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               Workspace
             </div>
 
-            <h1 className="text-[30px] font-semibold tracking-[-.035em] text-slate-950 sm:text-[36px]">
+            <h1 className="text-[34px] font-bold tracking-[-.055em] text-slate-950 sm:text-[42px]">
               Good to see you, {firstName}.
             </h1>
 
@@ -663,8 +670,8 @@ export default function Dashboard() {
         )}
 
         {/* HERO */}
-        <section className="relative mb-6 overflow-hidden rounded-[26px] bg-[#101318] px-6 py-7 text-white shadow-xl shadow-slate-300/30 sm:px-8 lg:px-10 lg:py-9">
-          <div className="pointer-events-none absolute -right-28 -top-36 h-80 w-80 rounded-full bg-white/[.07] blur-3xl" />
+        <section className="relative mb-6 overflow-hidden rounded-[30px] border border-black/[0.08] bg-[#0d1411] px-6 py-8 text-white shadow-[0_30px_80px_rgba(15,23,42,.14)] sm:px-8 lg:px-12 lg:py-12">
+          <div className="pointer-events-none absolute -right-28 -top-36 h-96 w-96 rounded-full bg-[#60B1FF]/[.13] blur-3xl" />
 
           <div className="relative grid gap-8 lg:grid-cols-[1.4fr_.8fr] lg:items-end">
             <div>
@@ -808,7 +815,7 @@ export default function Dashboard() {
 
         {/* LOWER CARDS */}
         <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_.8fr]">
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <section className="rounded-[22px] border border-black/[0.07] bg-white/75 p-5 shadow-[0_14px_40px_rgba(15,23,42,.06)] backdrop-blur-xl">
             <div className="flex items-center gap-3">
               <span className="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 text-slate-700">
                 <CheckCircle2 size={18} />
@@ -859,7 +866,7 @@ export default function Dashboard() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <section className="rounded-[22px] border border-black/[0.07] bg-white/75 p-5 shadow-[0_14px_40px_rgba(15,23,42,.06)] backdrop-blur-xl">
             <div className="flex items-center gap-3">
               <span className="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 text-slate-700">
                 <Clock3 size={18} />
@@ -971,6 +978,7 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+      </>
   );
 }

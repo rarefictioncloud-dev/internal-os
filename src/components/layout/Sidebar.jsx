@@ -73,15 +73,6 @@ export default function Sidebar() {
     navigate("/login");
   };
 
-  const name = profile?.name || "Profile";
-  const designation =
-    profile?.designation || profile?.role || "Workspace member";
-
-  const initials = name
-    .trim()
-    .charAt(0)
-    .toUpperCase();
-
   return (
     <aside
       className="
@@ -219,56 +210,41 @@ export default function Sidebar() {
               </div>
             ) : null
           )}
+
+          {/* LOG OUT — stays at the end of the scrollable navigation */}
+          <div className="mt-5 border-t border-white/[0.07] pt-3 pb-4">
+            <button
+              type="button"
+              onClick={logout}
+              className="
+                group flex h-[44px] w-full items-center gap-3 rounded-[14px]
+                border border-transparent px-3.5
+                text-[12px] font-medium tracking-[-0.01em] text-white/40
+                transition-all duration-300
+                hover:border-white/[0.07] hover:bg-red-500/[0.06]
+                hover:text-white/90
+              "
+            >
+              <span
+                className="
+                  grid h-8 w-8 shrink-0 place-items-center rounded-[10px]
+                  text-white/30 transition-all duration-300
+                  group-hover:bg-red-500/[0.10] group-hover:text-red-300
+                "
+              >
+                <LogOut size={16} strokeWidth={1.7} />
+              </span>
+
+              <span className="flex-1 text-left">Sign out</span>
+
+              <span className="text-[13px] text-white/15 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:text-white/50">
+                →
+              </span>
+            </button>
+          </div>
         </nav>
 
-        {/* ACCOUNT / PROFILE */}
-        <div className="relative z-10 border-t border-white/[0.08] bg-black/[0.14] p-3.5">
-          <button
-            onClick={() => navigate("/profile")}
-            className="group relative flex w-full items-center gap-3 overflow-hidden rounded-[16px] border border-white/[0.08] bg-white/[0.055] p-2.5 text-left transition-all duration-200 hover:border-white/[0.12] hover:bg-white/[0.075]"
-          >
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
-
-            {/* PROFILE PHOTO */}
-            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white/[0.08] ring-1 ring-white/[0.10]">
-              {profile?.photoURL ? (
-                <img
-                  src={profile.photoURL}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="grid h-full w-full place-items-center text-xs font-semibold text-white/60">
-                  {initials}
-                </div>
-              )}
-            </div>
-
-            {/* USER */}
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[12px] font-semibold tracking-[-0.01em] text-white/95">
-                {name}
-              </p>
-
-              <p className="mt-0.5 truncate text-[9px] uppercase tracking-[0.10em] text-white/30">
-                {designation}
-              </p>
-            </div>
-
-            <span className="text-[15px] text-white/20 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-white/60">
-              →
-            </span>
-          </button>
-
-          {/* SIGN OUT */}
-          <button
-            onClick={logout}
-            className="mt-1.5 flex h-9 w-full items-center gap-3 rounded-[11px] px-3 text-[11px] font-medium text-white/30 transition-all duration-200 hover:bg-red-500/[0.08] hover:text-red-300"
-          >
-            <LogOut size={15} strokeWidth={1.8} />
-            <span>Sign out</span>
-          </button>
-        </div>
+        {/* Clean bottom edge */}
       </div>
     </aside>
   );

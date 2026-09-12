@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+
   workflow_dispatch:
 
 permissions:
@@ -41,25 +42,10 @@ jobs:
           VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+
           VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
           VITE_CLOUDINARY_PROFILE_PRESET: ${{ secrets.VITE_CLOUDINARY_PROFILE_PRESET }}
           VITE_CLOUDINARY_MEDIA_PRESET: ${{ secrets.VITE_CLOUDINARY_MEDIA_PRESET }}
-
-      - name: Verify build output
-        run: |
-          echo "===== DIST ====="
-          find dist -maxdepth 2 -type f -print
-          echo "===== INDEX ====="
-          test -f dist/index.html
-          echo "===== JAVASCRIPT ====="
-          find dist/assets -name "*.js" -type f
-          echo "===== CSS ====="
-          find dist/assets -name "*.css" -type f
-          echo "===== 404 ====="
-          test -f dist/404.html
-
-      - name: Add GitHub Pages marker
-        run: touch dist/.nojekyll
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

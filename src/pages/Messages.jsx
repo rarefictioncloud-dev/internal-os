@@ -127,10 +127,21 @@ export default function Messages() {
 
   /* ------------------------------------------------------------
      SEEN STATE
+
+     Firestore is the authoritative read state. The read receipt belongs
+     only to the signed-in user and is written to:
+       conversations/{chatId}/reads/{uid}
+
+     This keeps the sidebar and Messages page synchronized across tabs
+     and devices without modifying message documents.
   ------------------------------------------------------------ */
 
   useEffect(() => {
-    if (!uid) return;
+    if (!uid) {
+      seenRef.current = {};
+      setSeen({});
+      return;
+    }
 
     try {
       const saved = JSON.parse(
@@ -145,8 +156,8 @@ export default function Messages() {
     }
   }, [uid]);
 
-  function markSeen(chatId, messageId) {
-    if (!chatId || !messageId) return;
+  async function markSeen(chatId, messageId) {
+    if (!uid || !chatId || !messageId) return;
 
     const next = {
       ...seenRef.current,
@@ -158,7 +169,24 @@ export default function Messages() {
 
     try {
       localStorage.setItem(seenKey(uid), JSON.stringify(next));
-    } catch {}
+    } catch {
+      // Local cache is only an optimization. Firestore remains authoritative.
+    }
+
+    try {
+      await setDoc(
+        doc(db, "conversations", chatId, "reads", uid),
+        {
+          lastSeenMessageId: messageId,
+          lastSeenAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      console.error("Mark conversation as read failed:", err);
+      // Do not block the chat UI. The existing Firestore security rules
+      // decide whether the authenticated user may write their own receipt.
+    }
 
     window.dispatchEvent(
       new CustomEvent("rf-message-seen", {
@@ -300,9 +328,10 @@ export default function Messages() {
 
         const latest = rows[rows.length - 1];
 
-        // Opening the conversation = seen.
+        // Opening the conversation marks its latest visible message as read.
+        // Firestore read receipts synchronize this with the sidebar.
         if (latest) {
-          markSeen(selected.id, latest.id);
+          void markSeen(selected.id, latest.id);
         }
       },
       (err) => {
@@ -341,7 +370,7 @@ export default function Messages() {
     const latest = meta[GENERAL_ID];
 
     if (latest) {
-      markSeen(GENERAL_ID, latest.id);
+      void markSeen(GENERAL_ID, latest.id);
     }
   }
 
@@ -382,7 +411,7 @@ export default function Messages() {
       const latest = meta[chatId];
 
       if (latest) {
-        markSeen(chatId, latest.id);
+        void markSeen(chatId, latest.id);
       }
     } catch (err) {
       console.error("Open conversation error:", err);

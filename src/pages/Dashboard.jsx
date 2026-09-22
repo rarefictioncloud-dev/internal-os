@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { useShift } from "../hooks/useShift";
 import { useEndShiftLogout } from "../components/common/EndShiftLogout";
 
-const DOG = "/models/chow-chow-hero.png";
+const DOG = `${import.meta.env.BASE_URL}models/chow-chow-hero.png`;
 const HERO =
   "Glad you stopped in. Good taste tends to find us. Now, what are we building?";
 

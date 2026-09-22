@@ -11,7 +11,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../firebase/config";
 
-const LOGO = "/models/logo.jpeg";
+const LOGO = `${import.meta.env.BASE_URL}models/logo.jpeg`;
 
 function Login() {
   const navigate = useNavigate();

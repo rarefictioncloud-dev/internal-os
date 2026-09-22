@@ -50,6 +50,10 @@ jobs:
           VITE_CLOUDINARY_PROFILE_PRESET: ${{ secrets.VITE_CLOUDINARY_PROFILE_PRESET }}
           VITE_CLOUDINARY_MEDIA_PRESET: ${{ secrets.VITE_CLOUDINARY_MEDIA_PRESET }}
 
+      - name: Create GitHub Pages SPA fallback
+        run: |
+          cp dist/index.html dist/404.html
+
       - name: Verify production build
         run: |
           echo "=== dist contents ==="
@@ -58,6 +62,9 @@ jobs:
           echo "=== dist/index.html ==="
           cat dist/index.html
 
+          echo "=== dist/404.html ==="
+          cat dist/404.html
+
           if grep -q '/src/main.jsx' dist/index.html; then
             echo "ERROR: Production build still references /src/main.jsx"
             exit 1
@@ -65,6 +72,11 @@ jobs:
 
           if ! grep -q '/internal-os/assets/' dist/index.html; then
             echo "ERROR: Vite production assets were not generated with /internal-os/ base path"
+            exit 1
+          fi
+
+          if [ ! -f dist/404.html ]; then
+            echo "ERROR: GitHub Pages SPA fallback was not created"
             exit 1
           fi
 

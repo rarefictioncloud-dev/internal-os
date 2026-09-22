@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock3,
+  Download,
   LogIn,
   LogOut,
   RefreshCw,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 import {
   collection,
+  getDocs,
   onSnapshot,
   query,
   where,
@@ -111,7 +113,15 @@ function getWorkedMs(attendance, now) {
   return Math.max(0, end - start - totalPaused - currentPause);
 }
 
-function StatCard({ icon: Icon, label, value, detail, tone = "neutral" }) {
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  detail,
+  tone = "neutral",
+  active = false,
+  onClick,
+}) {
   const tones = {
     neutral: "bg-slate-100 text-slate-700",
     green: "bg-emerald-50 text-emerald-700",
@@ -121,7 +131,15 @@ function StatCard({ icon: Icon, label, value, detail, tone = "neutral" }) {
   };
 
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full rounded-2xl border bg-white p-5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition ${
+        active
+          ? "border-slate-950 ring-2 ring-slate-950/10"
+          : "border-slate-200/80 hover:border-slate-300 hover:shadow-sm"
+      }`}
+    >
       <div className="flex items-start justify-between">
         <div
           className={`flex h-10 w-10 items-center justify-center rounded-xl ${tones[tone]}`}
@@ -143,7 +161,7 @@ function StatCard({ icon: Icon, label, value, detail, tone = "neutral" }) {
       </p>
 
       <p className="mt-1 text-xs text-slate-500">{detail}</p>
-    </div>
+    </button>
   );
 }
 
@@ -257,6 +275,7 @@ export default function Attendance() {
 
   const [loadingPeople, setLoadingPeople] = useState(true);
   const [loadingAttendance, setLoadingAttendance] = useState(true);
+  const [downloadingAttendance, setDownloadingAttendance] = useState(false);
   const [error, setError] = useState("");
 
   const today = localDayKey();
@@ -384,6 +403,7 @@ export default function Attendance() {
     const q = search.trim().toLowerCase();
 
     return rows.filter(({ person, attendance: record }) => {
+      if (!record?.loginAt) return false;
       const name = String(person.name || person.email || "").toLowerCase();
       const department = String(person.department || "").toLowerCase();
       const designation = String(person.designation || "").toLowerCase();
@@ -423,6 +443,204 @@ export default function Attendance() {
 
   const averageWorkedMs =
     people.length > 0 ? totalWorkedMs / people.length : 0;
+
+  const buildAttendanceRows = async (startDate, endDate) => {
+    const attendanceQuery = query(
+      collection(db, "attendance"),
+      where("date", ">=", startDate),
+      where("date", "<=", endDate)
+    );
+
+    const snapshot = await getDocs(attendanceQuery);
+    const peopleById = new Map(people.map((person) => [person.id, person]));
+
+    return snapshot.docs
+      .map((item) => ({ id: item.id, ...item.data() }))
+      .filter((record) => Boolean(record?.loginAt))
+      .sort((a, b) => {
+        const dateCompare = String(a.date || "").localeCompare(String(b.date || ""));
+        if (dateCompare !== 0) return dateCompare;
+
+        const aPerson = peopleById.get(a.userId);
+        const bPerson = peopleById.get(b.userId);
+
+        return String(aPerson?.name || aPerson?.email || "").localeCompare(
+          String(bPerson?.name || bPerson?.email || "")
+        );
+      })
+      .map((record) => ({
+        record,
+        person: peopleById.get(record.userId),
+      }));
+  };
+
+  const downloadAttendanceCsv = (filename, title, subtitle, rows) => {
+    const csvEscape = (value) => {
+      const stringValue = String(value ?? "");
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    };
+
+    const header = [
+      "Date",
+      "Employee",
+      "Time Logged",
+      "Login Time",
+      "Logout Time",
+    ];
+
+    const csvRows = rows.map(({ record, person }) => {
+      const workedMsForExport = (() => {
+        const loginMs = toMillis(record?.loginAt);
+        if (!loginMs) return 0;
+
+        const logoutMs = toMillis(record?.logoutAt);
+        let endMs = logoutMs;
+
+        if (!endMs) {
+          if (record?.date === today && record?.active === true) {
+            endMs = Date.now();
+          } else {
+            const loginDate = new Date(loginMs);
+            const dayEnd = new Date(loginDate);
+            dayEnd.setHours(22, 0, 0, 0);
+            endMs = dayEnd.getTime();
+          }
+        }
+
+        const totalPaused = Number(record?.totalPausedMs || 0);
+        const currentPause =
+          record?.date === today &&
+          record?.active === true &&
+          record?.paused === true &&
+          record?.pausedAt
+            ? Math.max(0, Date.now() - toMillis(record.pausedAt))
+            : 0;
+
+        return Math.max(0, endMs - loginMs - totalPaused - currentPause);
+      })();
+
+      return [
+        record.date || "",
+        person?.name ||
+          person?.email ||
+          record.userName ||
+          record.userEmail ||
+          record.userId ||
+          "Employee",
+        formatClock(workedMsForExport),
+        formatTime(record.loginAt),
+        record.logoutAt ? formatTime(record.logoutAt) : "—",
+      ];
+    });
+
+    const csv = [
+      [title],
+      [subtitle],
+      [],
+      header,
+      ...csvRows,
+    ]
+      .map((row) => row.map(csvEscape).join(","))
+      .join("\r\n");
+
+    const blob = new Blob(["\uFEFF", csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadTodaysAttendance = async () => {
+    if (downloadingAttendance) return;
+
+    setDownloadingAttendance(true);
+    setError("");
+
+    try {
+      const rows = await buildAttendanceRows(today, today);
+
+      const formattedToday = new Intl.DateTimeFormat("en-IN", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }).format(new Date());
+
+      downloadAttendanceCsv(
+        `attendance-today-${today}.csv`,
+        "RFM OS — TODAY'S ATTENDANCE",
+        formattedToday,
+        rows
+      );
+    } catch (downloadError) {
+      console.error("Today's attendance download:", downloadError);
+      setError(
+        downloadError?.code === "permission-denied"
+          ? "You do not have permission to download today's attendance."
+          : downloadError?.message || "Could not download today's attendance."
+      );
+    } finally {
+      setDownloadingAttendance(false);
+    }
+  };
+
+  const downloadMonthlyAttendance = async () => {
+    if (downloadingAttendance) return;
+
+    setDownloadingAttendance(true);
+    setError("");
+
+    try {
+      const current = new Date();
+      const year = current.getFullYear();
+      const month = current.getMonth();
+
+      const monthStart = localDayKey(new Date(year, month, 1));
+      const monthEnd = localDayKey(new Date(year, month + 1, 0));
+
+      const rows = await buildAttendanceRows(monthStart, monthEnd);
+
+      const monthLabel = new Intl.DateTimeFormat("en-IN", {
+        month: "long",
+        year: "numeric",
+      }).format(current);
+
+      downloadAttendanceCsv(
+        `attendance-${year}-${String(month + 1).padStart(2, "0")}.csv`,
+        `RFM OS — ${monthLabel.toUpperCase()} ATTENDANCE`,
+        `Complete monthly attendance • Only employees who logged in`,
+        rows
+      );
+    } catch (downloadError) {
+      console.error("Monthly attendance download:", downloadError);
+      setError(
+        downloadError?.code === "permission-denied"
+          ? "You do not have permission to download the monthly attendance."
+          : downloadError?.message || "Could not download monthly attendance."
+      );
+    } finally {
+      setDownloadingAttendance(false);
+    }
+  };
+
+  const selectStatus = (nextStatus) => {
+    setStatusFilter(nextStatus);
+    setSearch("");
+    setDepartmentFilter("ALL");
+
+    window.setTimeout(() => {
+      document
+        .getElementById("attendance-sheet")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  };
 
   if (!canViewCompanyAttendance) {
     return (
@@ -475,6 +693,26 @@ export default function Attendance() {
               <Activity size={14} className="text-emerald-500" />
               Updates in real time
             </div>
+
+            <button
+              type="button"
+              onClick={downloadTodaysAttendance}
+              disabled={downloadingAttendance}
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Download size={15} />
+              {downloadingAttendance ? "Preparing..." : "Today's attendance"}
+            </button>
+
+            <button
+              type="button"
+              onClick={downloadMonthlyAttendance}
+              disabled={downloadingAttendance}
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <CalendarDays size={15} />
+              {downloadingAttendance ? "Preparing..." : "Complete month"}
+            </button>
 
             <button
               type="button"
@@ -550,15 +788,7 @@ export default function Attendance() {
         </div>
 
         {/* Stats */}
-        <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            icon={Users}
-            label="Total team"
-            value={stats.total}
-            detail="Active company members"
-            tone="neutral"
-          />
-
+        <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <StatCard
             icon={UserCheck}
             label="Present today"
@@ -569,6 +799,8 @@ export default function Attendance() {
                 : "No team members"
             }
             tone="blue"
+            active={statusFilter === "PRESENT"}
+            onClick={() => selectStatus("PRESENT")}
           />
 
           <StatCard
@@ -581,19 +813,17 @@ export default function Attendance() {
                 : "Currently working"
             }
             tone="green"
+            active={statusFilter === "LOGGED_IN"}
+            onClick={() => selectStatus("LOGGED_IN")}
           />
 
-          <StatCard
-            icon={UserX}
-            label="Not logged in"
-            value={stats.notLoggedIn}
-            detail="No active session right now"
-            tone="amber"
-          />
         </div>
 
         {/* Attendance sheet */}
-        <section className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.04)]">
+        <section
+          id="attendance-sheet"
+          className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.04)]"
+        >
           <div className="border-b border-slate-100 p-5 sm:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
@@ -604,6 +834,17 @@ export default function Attendance() {
                   <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-500">
                     {visibleRows.length} people
                   </span>
+                  {statusFilter !== "ALL" && (
+                    <span className="rounded-full bg-slate-950 px-2 py-1 text-[10px] font-semibold text-white">
+                      {statusFilter === "PRESENT"
+                        ? "Present"
+                        : statusFilter === "LOGGED_IN"
+                          ? "Working"
+                          : statusFilter === "NOT_LOGGED_IN"
+                            ? "Not logged in"
+                            : "Paused"}
+                    </span>
+                  )}
                 </div>
                 <p className="mt-1 text-sm text-slate-500">
                   Every active team member and their current logged time.

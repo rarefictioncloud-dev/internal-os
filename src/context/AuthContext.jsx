@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "../firebase/config";
 
 const AuthContext = createContext(null);
@@ -11,42 +11,54 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      try {
-        setUser(firebaseUser);
+    let stopProfile = null;
 
-        if (firebaseUser) {
-          const profileRef = doc(db, "users", firebaseUser.uid);
-          const profileSnapshot = await getDoc(profileRef);
+    const stopAuth = onAuthStateChanged(auth, (firebaseUser) => {
+      stopProfile?.();
+      stopProfile = null;
+      setUser(firebaseUser);
+      setProfile(null);
 
-          if (profileSnapshot.exists()) {
-            setProfile(profileSnapshot.data());
-          } else {
-            setProfile(null);
-          }
-        } else {
-          setProfile(null);
-        }
-      } catch (error) {
-        console.error("Authentication profile error:", error);
-        setProfile(null);
-      } finally {
+      if (!firebaseUser) {
         setLoading(false);
+        return;
       }
+
+      setLoading(true);
+      stopProfile = onSnapshot(
+        doc(db, "users", firebaseUser.uid),
+        async (snapshot) => {
+          if (!snapshot.exists() || snapshot.data()?.isActive === false) {
+            await signOut(auth);
+            return;
+          }
+
+          setProfile(snapshot.data());
+          setLoading(false);
+        },
+        async (error) => {
+          console.error("Authentication profile listener:", error);
+          setProfile(null);
+          await signOut(auth);
+        }
+      );
     });
 
-    return unsubscribe;
+    return () => {
+      stopProfile?.();
+      stopAuth();
+    };
   }, []);
 
-  const value = {
-    user,
-    profile,
-    loading,
-    isAuthenticated: !!user,
-  };
-
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider
+      value={{
+        user,
+        profile,
+        loading,
+        isAuthenticated: !!user && !!profile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowLeft,
   BarChart3,
+  Building2,
   CheckCircle2,
   ChevronDown,
   Clock3,
@@ -263,6 +265,7 @@ export default function Performance() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [period, setPeriod] = useState("week");
+  const [selectedDepartment, setSelectedDepartment] = useState("");
   const [selected, setSelected] = useState(null);
   const [downloading, setDownloading] = useState("");
 
@@ -321,6 +324,7 @@ export default function Performance() {
           name: nameOf(member),
           role: member.role || "",
           designation: member.designation || "",
+          department: member.department || "Unassigned",
           total: 0,
           completed: 0,
           pending: 0,
@@ -339,6 +343,7 @@ export default function Performance() {
           name: task.assignedToName || "Former team member",
           role: "",
           designation: "",
+          department: task.assignedToDepartment || "Unassigned",
           total: 0,
           completed: 0,
           pending: 0,
@@ -358,12 +363,44 @@ export default function Performance() {
       row.assignedBy[assignerName] = (row.assignedBy[assignerName] || 0) + 1;
     });
 
-    const q = search.trim().toLowerCase();
-
     return [...base.values()]
-      .filter((employee) => !q || `${employee.name} ${employee.role} ${employee.designation}`.toLowerCase().includes(q))
       .sort((a, b) => b.total - a.total || b.completed - a.completed || a.name.localeCompare(b.name));
-  }, [members, periodTasks, search]);
+  }, [members, periodTasks]);
+
+  const departments = useMemo(() => {
+    const map = new Map();
+
+    members.forEach((member) => {
+      const name = String(member.department || "Unassigned").trim() || "Unassigned";
+      if (!map.has(name)) map.set(name, { name, members: 0, assigned: 0, completed: 0, pending: 0 });
+      map.get(name).members += 1;
+    });
+
+    employees.forEach((employee) => {
+      const name = String(employee.department || "Unassigned").trim() || "Unassigned";
+      if (!map.has(name)) map.set(name, { name, members: 0, assigned: 0, completed: 0, pending: 0 });
+      const row = map.get(name);
+      row.assigned += employee.total;
+      row.completed += employee.completed;
+      row.pending += employee.pending;
+    });
+
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [members, employees]);
+
+  const departmentEmployees = useMemo(
+    () => selectedDepartment
+      ? employees.filter((employee) => employee.department === selectedDepartment)
+      : [],
+    [employees, selectedDepartment]
+  );
+
+  const visibleDepartmentEmployees = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return departmentEmployees.filter((employee) =>
+      !q || `${employee.name} ${employee.role} ${employee.designation}`.toLowerCase().includes(q)
+    );
+  }, [departmentEmployees, search]);
 
   const summary = useMemo(() => {
     const total = periodTasks.length;
@@ -539,46 +576,176 @@ export default function Performance() {
         </div>
 
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 px-5 py-5">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-slate-950">Employee performance</h2>
-                <p className="mt-1 text-xs text-slate-400">Click an employee to see exactly who assigned their work.</p>
+          {!selectedDepartment ? (
+            <>
+              <div className="border-b border-slate-100 px-5 py-5">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <div className="grid h-9 w-9 place-items-center rounded-xl bg-slate-950 text-white">
+                        <Building2 size={17} />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-bold text-slate-950">Departments</h2>
+                        <p className="mt-1 text-xs text-slate-400">
+                          Select a department to view its team performance.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="relative w-full md:w-72">
+                    <Search size={16} className="absolute left-3 top-3 text-slate-400" />
+                    <input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search departments…"
+                      className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none focus:border-slate-400 focus:bg-white"
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="relative w-full md:w-72">
-                <Search size={16} className="absolute left-3 top-3 text-slate-400" />
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search employees…"
-                  className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none focus:border-slate-400 focus:bg-white"
-                />
-              </div>
-            </div>
-          </div>
 
-          <div className="hidden border-b border-slate-100 bg-slate-50/70 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400 lg:flex">
-            <span className="w-[28%]">Employee</span>
-            <span className="w-[30%]">Task volume</span>
-            <span className="flex-1 px-4">Assignment & completion</span>
-            <span className="w-5" />
-          </div>
+              {loading ? (
+                <div className="grid place-items-center p-16 text-sm text-slate-400">
+                  <Loader2 className="mb-3 animate-spin" size={22} />
+                  Loading departments…
+                </div>
+              ) : (
+                <div className="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-3">
+                  {departments
+                    .filter((department) =>
+                      !search.trim() || department.name.toLowerCase().includes(search.trim().toLowerCase())
+                    )
+                    .map((department) => {
+                      const rate = department.assigned
+                        ? Math.round((department.completed / department.assigned) * 100)
+                        : 0;
 
-          {loading ? (
-            <div className="grid place-items-center p-16 text-sm text-slate-400">
-              <Loader2 className="mb-3 animate-spin" size={22} />
-              Loading performance…
-            </div>
-          ) : employees.length === 0 ? (
-            <div className="p-16 text-center">
-              <BarChart3 className="mx-auto text-slate-300" size={40} />
-              <p className="mt-3 font-semibold text-slate-700">No performance data yet</p>
-              <p className="mt-1 text-sm text-slate-400">Tasks assigned during this period will appear here.</p>
-            </div>
+                      return (
+                        <button
+                          key={department.name}
+                          type="button"
+                          onClick={() => {
+                            setSelectedDepartment(department.name);
+                            setSearch("");
+                          }}
+                          className="group rounded-2xl border border-slate-200 bg-white p-5 text-left transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50 hover:shadow-md"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="grid h-11 w-11 place-items-center rounded-xl bg-slate-950 text-white">
+                              <Building2 size={19} />
+                            </div>
+                            <ChevronDown className="-rotate-90 text-slate-300 transition group-hover:text-slate-500" size={18} />
+                          </div>
+
+                          <h3 className="mt-5 text-base font-bold text-slate-950">{department.name}</h3>
+                          <p className="mt-1 text-xs text-slate-400">
+                            {department.members} active {department.members === 1 ? "member" : "members"}
+                          </p>
+
+                          <div className="mt-5 grid grid-cols-3 gap-2">
+                            <div className="rounded-xl bg-slate-50 p-3">
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Tasks</p>
+                              <p className="mt-1 text-lg font-bold text-slate-950">{department.assigned}</p>
+                            </div>
+                            <div className="rounded-xl bg-emerald-50 p-3">
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-500">Done</p>
+                              <p className="mt-1 text-lg font-bold text-emerald-700">{department.completed}</p>
+                            </div>
+                            <div className="rounded-xl bg-amber-50 p-3">
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-amber-500">Pending</p>
+                              <p className="mt-1 text-lg font-bold text-amber-700">{department.pending}</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4">
+                            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400">
+                              <span>Completion</span>
+                              <span className="text-slate-700">{rate}%</span>
+                            </div>
+                            <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+                              <div
+                                className="h-full rounded-full bg-slate-950 transition-all"
+                                style={{ width: `${rate}%` }}
+                              />
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+
+                  {!departments.filter((department) =>
+                    !search.trim() || department.name.toLowerCase().includes(search.trim().toLowerCase())
+                  ).length && (
+                    <div className="col-span-full p-12 text-center">
+                      <Building2 className="mx-auto text-slate-300" size={40} />
+                      <p className="mt-3 font-semibold text-slate-700">No departments found</p>
+                      <p className="mt-1 text-sm text-slate-400">Try a different search.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           ) : (
-            employees.map((employee) => (
-              <EmployeeRow key={employee.id} employee={employee} onOpen={setSelected} />
-            ))
+            <>
+              <div className="border-b border-slate-100 px-5 py-5">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDepartment("");
+                        setSearch("");
+                      }}
+                      className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-950"
+                      aria-label="Back to departments"
+                    >
+                      <ArrowLeft size={17} />
+                    </button>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Building2 size={17} className="text-slate-400" />
+                        <h2 className="text-lg font-bold text-slate-950">{selectedDepartment}</h2>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {departmentEmployees.length} active {departmentEmployees.length === 1 ? "member" : "members"} · Click a member to view performance detail.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="relative w-full md:w-72">
+                    <Search size={16} className="absolute left-3 top-3 text-slate-400" />
+                    <input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search employees…"
+                      className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none focus:border-slate-400 focus:bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="hidden border-b border-slate-100 bg-slate-50/70 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400 lg:flex">
+                <span className="w-[28%]">Employee</span>
+                <span className="w-[30%]">Task volume</span>
+                <span className="flex-1 px-4">Assignment & completion</span>
+                <span className="w-5" />
+              </div>
+
+              {visibleDepartmentEmployees.length ? (
+                visibleDepartmentEmployees.map((employee) => (
+                  <EmployeeRow key={employee.id} employee={employee} onOpen={setSelected} />
+                ))
+              ) : (
+                <div className="p-16 text-center">
+                  <Users className="mx-auto text-slate-300" size={40} />
+                  <p className="mt-3 font-semibold text-slate-700">No team members found</p>
+                  <p className="mt-1 text-sm text-slate-400">
+                    No members match your search in this department.
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </div>
 

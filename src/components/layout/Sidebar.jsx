@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+
 import {
   BarChart3, Bell, BookOpen, BriefcaseBusiness, CalendarDays, CalendarOff, CheckSquare, ClipboardCheck, Clock3, FileText, FolderKanban,
   Gamepad2, Home, LogOut, MessageSquare, NotebookPen, Receipt, Users, X,
@@ -188,7 +188,7 @@ function Badge({ count, label }) {
   ) : null;
 }
 
-export default function Sidebar() {
+export default function Sidebar({ mobileMenuOpen = false, setMobileMenuOpen = () => {} }) {
   const navigate = useNavigate();
   const { profile, user } = useAuth();
   const role = profile?.role;
@@ -390,7 +390,7 @@ export default function Sidebar() {
             <div className="group relative flex h-[78px] items-center gap-3 overflow-hidden rounded-[20px] border border-white/[0.10] bg-[#050505] px-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,.04)] transition-all duration-300 hover:border-red-500/25 hover:bg-[#080808]">
               <span className="absolute left-0 top-1/2 h-9 w-[2px] -translate-y-1/2 rounded-r-full bg-red-500 shadow-[0_0_12px_rgba(239,68,68,.65)]" />
               <div className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-[14px] border border-white/[0.10] bg-black shadow-[0_8px_28px_rgba(0,0,0,.5)]">
-                <img src="/models/logo.jpeg" alt="Rare Fiction" className="h-full w-full object-cover" />
+                <img src={`${import.meta.env.BASE_URL}models/logo.jpeg`} alt="Rare Fiction" className="h-full w-full object-cover" />
               </div>
               <div className="min-w-0 leading-none">
                 <span className="whitespace-nowrap text-[13px] font-bold uppercase tracking-[0.11em] text-white">RareFiction</span>

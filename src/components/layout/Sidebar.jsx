@@ -455,6 +455,152 @@ export default function Sidebar({ mobileMenuOpen = false, setMobileMenuOpen = ()
         </div>
       </aside>
 
+      {/* ================= MOBILE SIDEBAR — EXACT DESKTOP REPLICA ================= */}
+      {mobileMenuOpen ? (
+        <>
+          <button
+            type="button"
+            aria-label="Close navigation"
+            onClick={() => setMobileMenuOpen(false)}
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px] md:hidden"
+          />
+
+          <aside className="fixed inset-y-0 left-0 z-50 flex w-[272px] flex-col overflow-hidden border-r border-white/[0.08] bg-black text-white shadow-[24px_0_70px_rgba(0,0,0,0.55)] md:hidden">
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div className="absolute -left-28 -top-28 h-72 w-72 rounded-full bg-red-600/[0.045] blur-3xl" />
+              <div className="absolute -bottom-32 -right-24 h-72 w-72 rounded-full bg-red-600/[0.035] blur-3xl" />
+              <div
+                className="absolute inset-0 opacity-[0.12]"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px)",
+                  backgroundSize: "46px 46px",
+                }}
+              />
+              <div className="absolute right-0 top-0 h-full w-px bg-gradient-to-b from-transparent via-red-500/20 to-transparent" />
+            </div>
+
+            <div className="relative z-10 flex h-full min-h-0 flex-col">
+              {/* BRAND — same as desktop */}
+              <div className="px-4 pt-4">
+                <div className="group relative flex h-[78px] items-center gap-3 overflow-hidden rounded-[20px] border border-white/[0.10] bg-[#050505] px-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,.04)]">
+                  <span className="absolute left-0 top-1/2 h-9 w-[2px] -translate-y-1/2 rounded-r-full bg-red-500 shadow-[0_0_12px_rgba(239,68,68,.65)]" />
+                  <div className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-[14px] border border-white/[0.10] bg-black shadow-[0_8px_28px_rgba(0,0,0,.5)]">
+                    <img
+                      src={`${import.meta.env.BASE_URL}models/logo.jpeg`}
+                      alt="Rare Fiction"
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                  <div className="min-w-0 leading-none">
+                    <span className="whitespace-nowrap text-[13px] font-bold uppercase tracking-[0.11em] text-white">
+                      RareFiction
+                    </span>
+                    <p className="mt-2 text-[8px] font-bold uppercase tracking-[0.34em] text-red-500">
+                      OS
+                    </p>
+                  </div>
+                  <span className="absolute right-3 top-3 h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,.85)]" />
+                </div>
+              </div>
+
+              {/* RFM OS DIVIDER — same as desktop */}
+              <div className="relative z-10 flex items-center gap-2.5 px-7 pb-1 pt-7">
+                <span className="h-px w-6 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,.45)]" />
+                <span className="text-[8px] font-bold uppercase tracking-[0.34em] text-white/25">
+                  RFM OS
+                </span>
+              </div>
+
+              {/* NAVIGATION — same sections, same items, same badges */}
+              <nav className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 py-3 [scrollbar-color:rgba(255,255,255,.12)_transparent] [scrollbar-width:thin]">
+                {sections.map(([title, items]) =>
+                  items.length ? (
+                    <div key={`mobile-${title}`} className="mb-7 last:mb-0">
+                      <p className="mb-2.5 px-3 text-[8px] font-bold tracking-[0.27em] text-white/20">
+                        {title}
+                      </p>
+
+                      <div className="space-y-1">
+                        {items.map(([label, path, Icon]) => (
+                          <NavLink
+                            key={`mobile-${path}`}
+                            to={path}
+                            end={path === "/"}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={({ isActive }) =>
+                              `group relative flex h-[44px] items-center gap-3 rounded-[14px] px-3.5 text-[12px] font-medium tracking-[-0.01em] transition-all duration-200 ${
+                                isActive
+                                  ? "border border-red-500/20 bg-red-500/[0.09] text-white shadow-[inset_0_1px_0_rgba(239,68,68,.08),0_8px_28px_rgba(0,0,0,.18)]"
+                                  : "border border-transparent text-white/40 hover:border-white/[0.06] hover:bg-white/[0.035] hover:text-white/85"
+                              }`
+                            }
+                          >
+                            {({ isActive }) => {
+                              const [count = 0, aria] = badges[label] || [];
+
+                              return (
+                                <>
+                                  <span
+                                    className={`absolute -left-4 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r-full transition-all duration-300 ${
+                                      isActive
+                                        ? "bg-red-500 shadow-[0_0_12px_rgba(239,68,68,.8)]"
+                                        : "bg-transparent"
+                                    }`}
+                                  />
+
+                                  <span
+                                    className={`grid h-8 w-8 shrink-0 place-items-center rounded-[10px] transition-all duration-200 ${
+                                      isActive
+                                        ? "bg-red-500/[0.12] text-red-400"
+                                        : "bg-transparent text-white/30 group-hover:bg-white/[0.045] group-hover:text-white/65"
+                                    }`}
+                                  >
+                                    <Icon size={16} strokeWidth={isActive ? 2 : 1.7} />
+                                  </span>
+
+                                  <span className="min-w-0 flex-1 truncate">{label}</span>
+
+                                  <Badge count={count} label={aria} />
+
+                                  {isActive && !count ? (
+                                    <span className="h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_9px_rgba(239,68,68,.75)]" />
+                                  ) : null}
+                                </>
+                              );
+                            }}
+                          </NavLink>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null
+                )}
+
+                {/* SIGN OUT — same as desktop */}
+                <div className="mt-5 border-t border-white/[0.07] pb-4 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      logout();
+                    }}
+                    className="group flex h-[44px] w-full items-center gap-3 rounded-[14px] border border-transparent px-3.5 text-[12px] font-medium tracking-[-0.01em] text-white/35 transition-all duration-300 hover:border-red-500/15 hover:bg-red-500/[0.055] hover:text-white/90"
+                  >
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-white/25 transition-all duration-300 group-hover:bg-red-500/[0.10] group-hover:text-red-400">
+                      <LogOut size={16} strokeWidth={1.7} />
+                    </span>
+                    <span className="flex-1 text-left">Sign out</span>
+                    <span className="text-[13px] text-white/15 transition-all duration-300 group-hover:translate-x-0.5 group-hover:text-red-400">
+                      →
+                    </span>
+                  </button>
+                </div>
+              </nav>
+            </div>
+          </aside>
+        </>
+      ) : null}
+
       {logoutFlow.dialog}
 
       {/* ================= TOASTS (all pages, all roles, desktop + mobile) ================= */}

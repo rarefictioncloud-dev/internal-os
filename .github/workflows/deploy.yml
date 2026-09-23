@@ -49,6 +49,7 @@ jobs:
           VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
           VITE_CLOUDINARY_PROFILE_PRESET: ${{ secrets.VITE_CLOUDINARY_PROFILE_PRESET }}
           VITE_CLOUDINARY_MEDIA_PRESET: ${{ secrets.VITE_CLOUDINARY_MEDIA_PRESET }}
+          VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
 
       - name: Create GitHub Pages SPA fallback
         run: |

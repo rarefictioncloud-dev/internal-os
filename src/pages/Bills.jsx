@@ -24,7 +24,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { db } from "../firebase/config";
 
-const MANAGEMENT_ROLES = ["CEO", "COO", "HR"];
+const UPLOAD_ROLES = ["EMPLOYEE", "MANAGER", "HR", "LEAD"];
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
 
 const ALLOWED_TYPES = [
@@ -222,7 +222,10 @@ export default function Bills() {
   const fileInputRef = useRef(null);
 
   const role = normalize(profile?.role);
-  const isManagement = MANAGEMENT_ROLES.includes(role);
+  const isCEO = role === "CEO";
+  const canUpload = UPLOAD_ROLES.includes(role);
+  const canApprove = isCEO;
+  const hasBillsAccess = isCEO || canUpload;
   const isActive = profile?.isActive !== false;
 
   const [bills, setBills] = useState([]);
@@ -248,9 +251,18 @@ export default function Bills() {
     setLoading(true);
     setError("");
 
+    if (!hasBillsAccess) {
+      setBills([]);
+      setLoading(false);
+      setError("You do not have access to the Bills section.");
+      return undefined;
+    }
+
     const billsRef = collection(db, "bills");
 
-    const billsQuery = isManagement
+    // CEO can review all submitted bills.
+    // Uploading roles can only read bills they personally uploaded.
+    const billsQuery = isCEO
       ? query(billsRef, orderBy("createdAt", "desc"))
       : query(
           billsRef,
@@ -279,7 +291,7 @@ export default function Bills() {
         );
       }
     );
-  }, [user?.uid, isManagement, isActive]);
+  }, [user?.uid, isCEO, canUpload, hasBillsAccess, isActive]);
 
   const filteredBills = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -350,6 +362,11 @@ export default function Bills() {
 
     if (!user?.uid || !isActive) {
       setError("You must be signed in with an active account.");
+      return;
+    }
+
+    if (!canUpload) {
+      setError("Only employees, managers, HR, and leads can upload bills.");
       return;
     }
 
@@ -442,7 +459,7 @@ export default function Bills() {
   };
 
   const approveBill = async (bill) => {
-    if (!isManagement || !user?.uid) return;
+    if (!isCEO || !user?.uid) return;
 
     // Approval/rejection is intentionally performed through a server-side
     // Firestore transaction in the production security model. This client
@@ -474,7 +491,7 @@ export default function Bills() {
   };
 
   const rejectBill = async (bill) => {
-    if (!isManagement || !user?.uid) return;
+    if (!isCEO || !user?.uid) return;
 
     const reason = window.prompt(
       "Enter a reason for rejecting this bill:"
@@ -529,6 +546,20 @@ export default function Bills() {
     );
   }
 
+  if (!hasBillsAccess) {
+    return (
+      <div className="min-h-full bg-[#f7f7f5] px-4 py-8">
+        <div className="mx-auto max-w-5xl rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+          <ShieldCheck className="mx-auto text-slate-400" size={34} />
+          <h1 className="mt-4 text-2xl font-bold text-slate-950">Bills</h1>
+          <p className="mt-2 text-sm text-slate-500">
+            Bills are available only to employees, managers, HR, leads, and the CEO.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-full bg-[#f7f7f5] px-4 py-7 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1400px]">
@@ -543,15 +574,16 @@ export default function Bills() {
                 Bills
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                Upload expense bills with a clear note. Bills remain pending
-                until CEO, COO, or HR reviews them.
+                {isCEO
+                  ? "Review expense bills submitted by employees, managers, HR, and leads."
+                  : "Upload your expense bills with a clear note. Only the CEO can approve or reject submissions."}
               </p>
             </div>
 
-            {isManagement && (
+            {isCEO && (
               <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
                 <ShieldCheck size={15} />
-                Approval access
+                CEO approval access
               </div>
             )}
           </div>
@@ -646,7 +678,8 @@ export default function Bills() {
           </button>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[390px_minmax(0,1fr)]">
+        <div className={`grid gap-6 ${canUpload ? "lg:grid-cols-[390px_minmax(0,1fr)]" : ""}`}>
+          {canUpload && (
           <section className="h-fit rounded-3xl border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-6">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-950 text-white">
@@ -761,17 +794,18 @@ export default function Bills() {
               </button>
             </form>
           </section>
+          )}
 
           <section className="min-w-0">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-lg font-bold text-slate-950">
-                  {isManagement ? "Expense approvals" : "My bills"}
+                  {isCEO ? "Expense approvals" : "My bills"}
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  {isManagement
-                    ? "Review bills submitted by employees."
-                    : "Track the bills you have submitted."}
+                  {isCEO
+                    ? "Review every submitted bill and approve or reject it."
+                    : "Track only the bills you have submitted."}
                 </p>
               </div>
 
@@ -812,7 +846,7 @@ export default function Bills() {
                   <BillCard
                     key={bill.id}
                     bill={bill}
-                    canApprove={isManagement}
+                    canApprove={canApprove}
                     onApprove={approveBill}
                     onReject={rejectBill}
                     approvingId={approvingId}

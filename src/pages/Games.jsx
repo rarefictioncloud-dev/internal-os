@@ -84,8 +84,7 @@ function Games() {
     now < playEnd;
 
   const isCooldown =
-    !isPlaying &&
-    unlockAt > now;
+    !isPlaying && unlockAt > now;
 
   const remaining =
     isPlaying ? playEnd - now : 0;
@@ -131,40 +130,40 @@ function Games() {
   };
 
   return (
-    <div className="min-h-full bg-black px-4 py-6 text-white sm:px-6 lg:px-8">
+    <div className="min-h-full bg-[#f7f7f5] px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
 
         {/* Header */}
         <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] text-white/40">
+            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">
               <Gamepad2 size={15} />
               RFM Games
             </div>
 
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
               Take a quick break.
             </h1>
 
-            <p className="mt-2 max-w-xl text-sm text-white/40">
+            <p className="mt-2 max-w-xl text-sm text-slate-500">
               Choose any game. Your three-minute session is shared
               across all games.
             </p>
           </div>
 
-          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+          <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
             {isCooldown ? (
-              <Lock size={17} className="text-red-400" />
+              <Lock size={17} className="text-red-500" />
             ) : (
-              <Clock3 size={17} className="text-white/60" />
+              <Clock3 size={17} className="text-slate-500" />
             )}
 
             <div>
-              <p className="text-[9px] uppercase tracking-widest text-white/30">
+              <p className="text-[9px] uppercase tracking-widest text-slate-400">
                 Status
               </p>
 
-              <p className="text-xs font-semibold">
+              <p className="text-xs font-semibold text-slate-900">
                 {isCooldown
                   ? "GAMES LOCKED"
                   : isPlaying
@@ -176,11 +175,11 @@ function Games() {
         </div>
 
         {/* Timer */}
-        <div className="mb-8 rounded-3xl border border-white/10 bg-white/[0.035] p-6 sm:p-8">
+        <div className="mb-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.05)] sm:p-8">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
 
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
                 {isCooldown ? (
                   <TimerReset size={22} />
                 ) : (
@@ -189,13 +188,13 @@ function Games() {
               </div>
 
               <div>
-                <p className="text-xs uppercase tracking-wider text-white/30">
+                <p className="text-xs uppercase tracking-wider text-slate-400">
                   {isCooldown
                     ? "Next session available in"
                     : "Time remaining"}
                 </p>
 
-                <p className="mt-1 text-3xl font-semibold tabular-nums">
+                <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-900">
                   {isPlaying
                     ? formatTime(remaining)
                     : isCooldown
@@ -205,7 +204,7 @@ function Games() {
               </div>
             </div>
 
-            <p className="max-w-md text-xs leading-5 text-white/35">
+            <p className="max-w-md text-xs leading-5 text-slate-500">
               {isCooldown
                 ? "Your gaming session has ended. Games will unlock automatically after the cooldown."
                 : isPlaying
@@ -228,37 +227,37 @@ function Games() {
                 onClick={() => startGame(game)}
                 className={`group relative overflow-hidden rounded-3xl border p-6 text-left transition-all ${
                   locked
-                    ? "cursor-not-allowed border-white/5 bg-white/[0.02] opacity-40"
-                    : "border-white/10 bg-white/[0.035] hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.06]"
+                    ? "cursor-not-allowed border-slate-200 bg-white opacity-40"
+                    : "border-slate-200 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)] hover:-translate-y-1 hover:border-red-200 hover:bg-white hover:shadow-[0_16px_36px_rgba(15,23,42,0.08)]"
                 }`}
               >
                 <div className="mb-7 flex items-start justify-between">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/[0.06] text-4xl">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-4xl">
                     {game.emoji}
                   </div>
 
                   {locked ? (
-                    <div className="rounded-full bg-white/5 p-2">
+                    <div className="rounded-full bg-slate-100 p-2 text-slate-500">
                       <Lock size={15} />
                     </div>
                   ) : (
                     <Play
                       size={17}
-                      className="text-white/20 transition-all group-hover:translate-x-1 group-hover:text-white/70"
+                      className="text-slate-300 transition-all group-hover:translate-x-1 group-hover:text-red-500"
                     />
                   )}
                 </div>
 
-                <h2 className="text-lg font-semibold">
+                <h2 className="text-lg font-semibold text-slate-900">
                   {game.title}
                 </h2>
 
-                <p className="mt-2 min-h-10 text-sm leading-5 text-white/40">
+                <p className="mt-2 min-h-10 text-sm leading-5 text-slate-500">
                   {game.description}
                 </p>
 
-                <div className="mt-6 border-t border-white/5 pt-4">
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-white/25">
+                <div className="mt-6 border-t border-slate-100 pt-4">
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
                     {locked
                       ? "Locked"
                       : isPlaying
@@ -272,15 +271,15 @@ function Games() {
         </div>
 
         {/* Policy */}
-        <div className="mt-8 rounded-2xl border border-white/5 bg-white/[0.02] p-5">
+        <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
           <div className="flex items-start gap-3">
             <Clock3
               size={17}
-              className="mt-0.5 shrink-0 text-white/30"
+              className="mt-0.5 shrink-0 text-slate-400"
             />
 
-            <p className="text-xs leading-5 text-white/35">
-              <span className="font-semibold text-white/60">
+            <p className="text-xs leading-5 text-slate-500">
+              <span className="font-semibold text-slate-700">
                 Gaming policy:
               </span>{" "}
               one shared three-minute session is available. After the

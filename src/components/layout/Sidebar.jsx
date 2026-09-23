@@ -213,7 +213,7 @@ export default function Sidebar({ mobileMenuOpen = false, setMobileMenuOpen = ()
     ...groups(role, profile?.department),
     ["MANAGEMENT", [
       ...(can(["CEO", "COO", "HR"]) ? [["Approvals", "/approvals", ClipboardCheck]] : []),
-      ...(can(["COO", "HR"]) ? [["Team", "/team", Users]] : []),
+      ...(can(["CEO", "COO", "HR"]) ? [["Team", "/team", Users]] : []),
       ...(can(["CEO", "COO", "HR"]) ? [["Attendance", "/attendance", Clock3]] : []),
     ]],
     ["INSIGHTS", can(["CEO", "COO", "HR"]) ? [["Performance", "/performance", BarChart3]] : []],
@@ -373,27 +373,27 @@ export default function Sidebar({ mobileMenuOpen = false, setMobileMenuOpen = ()
       `}</style>
 
       {/* ================= DESKTOP SIDEBAR ================= */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[272px] flex-col overflow-hidden border-r border-white/[0.08] bg-black text-white shadow-[24px_0_70px_rgba(0,0,0,0.55)] md:flex">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[272px] flex-col overflow-hidden border-r border-[#e7e5e1] bg-[#f7f7f5] text-slate-900 shadow-[24px_0_70px_rgba(15,23,42,0.08)] md:flex">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -left-28 -top-28 h-72 w-72 rounded-full bg-red-600/[0.045] blur-3xl" />
-          <div className="absolute -bottom-32 -right-24 h-72 w-72 rounded-full bg-red-600/[0.035] blur-3xl" />
-          <div className="absolute inset-0 opacity-[0.12]" style={{
-            backgroundImage: "linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px)",
+          <div className="absolute -left-28 -top-28 h-72 w-72 rounded-full bg-red-500/[0.035] blur-3xl" />
+          <div className="absolute -bottom-32 -right-24 h-72 w-72 rounded-full bg-red-500/[0.025] blur-3xl" />
+          <div className="absolute inset-0 opacity-[0.035]" style={{
+            backgroundImage: "linear-gradient(rgba(15,23,42,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(15,23,42,.025) 1px,transparent 1px)",
             backgroundSize: "46px 46px",
           }} />
-          <div className="absolute right-0 top-0 h-full w-px bg-gradient-to-b from-transparent via-red-500/20 to-transparent" />
+          <div className="absolute right-0 top-0 h-full w-px bg-gradient-to-b from-transparent via-red-500/18 to-transparent" />
         </div>
 
         <div className="relative z-10 flex h-full min-h-0 flex-col">
           {/* BRAND */}
           <div className="px-4 pt-4">
-            <div className="group relative flex h-[78px] items-center gap-3 overflow-hidden rounded-[20px] border border-white/[0.10] bg-[#050505] px-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,.04)] transition-all duration-300 hover:border-red-500/25 hover:bg-[#080808]">
+            <div className="group relative flex h-[78px] items-center gap-3 overflow-hidden rounded-[20px] border border-[#e2e0dc] bg-white px-3.5 shadow-[0_8px_25px_rgba(15,23,42,.06)] transition-all duration-300 hover:border-red-200 hover:bg-white">
               <span className="absolute left-0 top-1/2 h-9 w-[2px] -translate-y-1/2 rounded-r-full bg-red-500 shadow-[0_0_12px_rgba(239,68,68,.65)]" />
-              <div className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-[14px] border border-white/[0.10] bg-black shadow-[0_8px_28px_rgba(0,0,0,.5)]">
+              <div className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-[14px] border border-[#e2e0dc] bg-white shadow-[0_8px_28px_rgba(15,23,42,.07)]">
                 <img src={`${import.meta.env.BASE_URL}models/logo.jpeg`} alt="Rare Fiction" className="h-full w-full object-cover" />
               </div>
               <div className="min-w-0 leading-none">
-                <span className="whitespace-nowrap text-[13px] font-bold uppercase tracking-[0.11em] text-white">RareFiction</span>
+                <span className="whitespace-nowrap text-[13px] font-bold uppercase tracking-[0.11em] text-slate-900">RareFiction</span>
                 <p className="mt-2 text-[8px] font-bold uppercase tracking-[0.34em] text-red-500">OS</p>
               </div>
               <span className="absolute right-3 top-3 h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,.85)]" />
@@ -403,29 +403,29 @@ export default function Sidebar({ mobileMenuOpen = false, setMobileMenuOpen = ()
           {/* RFM OS DIVIDER */}
           <div className="relative z-10 flex items-center gap-2.5 px-7 pb-1 pt-7">
             <span className="h-px w-6 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,.45)]" />
-            <span className="text-[8px] font-bold uppercase tracking-[0.34em] text-white/25">RFM OS</span>
+            <span className="text-[8px] font-bold uppercase tracking-[0.34em] text-slate-400">RFM OS</span>
           </div>
 
           {/* NAVIGATION */}
-          <nav className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 py-3 [scrollbar-color:rgba(255,255,255,.12)_transparent] [scrollbar-width:thin]">
+          <nav className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 py-3 [scrollbar-color:rgba(15,23,42,.12)_transparent] [scrollbar-width:thin]">
             {sections.map(([title, items]) => items.length ? (
               <div key={title} className="mb-7 last:mb-0">
-                <p className="mb-2.5 px-3 text-[8px] font-bold tracking-[0.27em] text-white/20">{title}</p>
+                <p className="mb-2.5 px-3 text-[8px] font-bold tracking-[0.27em] text-slate-400">{title}</p>
                 <div className="space-y-1">
                   {items.map(([label, path, Icon]) => (
                     <NavLink key={path} to={path} end={path === "/"}
                       className={({ isActive }) =>
                         `group relative flex h-[44px] items-center gap-3 rounded-[14px] px-3.5 text-[12px] font-medium tracking-[-0.01em] transition-all duration-200 ${
                           isActive
-                            ? "border border-red-500/20 bg-red-500/[0.09] text-white shadow-[inset_0_1px_0_rgba(239,68,68,.08),0_8px_28px_rgba(0,0,0,.18)]"
-                            : "border border-transparent text-white/40 hover:border-white/[0.06] hover:bg-white/[0.035] hover:text-white/85"
+                            ? "border border-red-500/20 bg-red-50 text-slate-900 shadow-[inset_0_1px_0_rgba(239,68,68,.08),0_8px_28px_rgba(15,23,42,.06)]"
+                            : "border border-transparent text-slate-500 hover:border-[#e7e5e1] hover:bg-white/70 hover:text-slate-900"
                         }`}>
                       {({ isActive }) => {
                         const [count = 0, aria] = badges[label] || [];
                         return (
                           <>
                             <span className={`absolute -left-4 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r-full transition-all duration-300 ${isActive ? "bg-red-500 shadow-[0_0_12px_rgba(239,68,68,.8)]" : "bg-transparent"}`} />
-                            <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-[10px] transition-all duration-200 ${isActive ? "bg-red-500/[0.12] text-red-400" : "bg-transparent text-white/30 group-hover:bg-white/[0.045] group-hover:text-white/65"}`}>
+                            <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-[10px] transition-all duration-200 ${isActive ? "bg-red-50 text-red-500" : "bg-transparent text-slate-400 group-hover:bg-white group-hover:text-slate-700"}`}>
                               <Icon size={16} strokeWidth={isActive ? 2 : 1.7} />
                             </span>
                             <span className="min-w-0 flex-1 truncate">{label}</span>
@@ -441,14 +441,14 @@ export default function Sidebar({ mobileMenuOpen = false, setMobileMenuOpen = ()
             ) : null)}
 
             {/* SIGN OUT */}
-            <div className="mt-5 border-t border-white/[0.07] pb-4 pt-3">
+            <div className="mt-5 border-t border-[#e7e5e1] pb-4 pt-3">
               <button type="button" onClick={logout}
-                className="group flex h-[44px] w-full items-center gap-3 rounded-[14px] border border-transparent px-3.5 text-[12px] font-medium tracking-[-0.01em] text-white/35 transition-all duration-300 hover:border-red-500/15 hover:bg-red-500/[0.055] hover:text-white/90">
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-white/25 transition-all duration-300 group-hover:bg-red-500/[0.10] group-hover:text-red-400">
+                className="group flex h-[44px] w-full items-center gap-3 rounded-[14px] border border-transparent px-3.5 text-[12px] font-medium tracking-[-0.01em] text-slate-500 transition-all duration-300 hover:border-red-500/20 hover:bg-red-500/[0.025] hover:text-white/90">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-white/25 transition-all duration-300 group-hover:bg-red-500/[0.035] group-hover:text-red-400">
                   <LogOut size={16} strokeWidth={1.7} />
                 </span>
                 <span className="flex-1 text-left">Sign out</span>
-                <span className="text-[13px] text-white/15 transition-all duration-300 group-hover:translate-x-0.5 group-hover:text-red-400">→</span>
+                <span className="text-[13px] text-slate-300 transition-all duration-300 group-hover:translate-x-0.5 group-hover:text-red-500">→</span>
               </button>
             </div>
           </nav>
@@ -465,27 +465,27 @@ export default function Sidebar({ mobileMenuOpen = false, setMobileMenuOpen = ()
             className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px] md:hidden"
           />
 
-          <aside className="fixed inset-y-0 left-0 z-50 flex w-[272px] flex-col overflow-hidden border-r border-white/[0.08] bg-black text-white shadow-[24px_0_70px_rgba(0,0,0,0.55)] md:hidden">
+          <aside className="fixed inset-y-0 left-0 z-[60] flex w-[272px] flex-col overflow-hidden border-r border-[#e7e5e1] bg-[#f7f7f5] text-slate-900 shadow-[24px_0_70px_rgba(15,23,42,0.08)] md:hidden">
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
-              <div className="absolute -left-28 -top-28 h-72 w-72 rounded-full bg-red-600/[0.045] blur-3xl" />
-              <div className="absolute -bottom-32 -right-24 h-72 w-72 rounded-full bg-red-600/[0.035] blur-3xl" />
+              <div className="absolute -left-28 -top-28 h-72 w-72 rounded-full bg-red-500/[0.035] blur-3xl" />
+              <div className="absolute -bottom-32 -right-24 h-72 w-72 rounded-full bg-red-500/[0.025] blur-3xl" />
               <div
-                className="absolute inset-0 opacity-[0.12]"
+                className="absolute inset-0 opacity-[0.035]"
                 style={{
                   backgroundImage:
-                    "linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px)",
+                    "linear-gradient(rgba(15,23,42,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(15,23,42,.025) 1px,transparent 1px)",
                   backgroundSize: "46px 46px",
                 }}
               />
-              <div className="absolute right-0 top-0 h-full w-px bg-gradient-to-b from-transparent via-red-500/20 to-transparent" />
+              <div className="absolute right-0 top-0 h-full w-px bg-gradient-to-b from-transparent via-red-500/25 to-transparent" />
             </div>
 
             <div className="relative z-10 flex h-full min-h-0 flex-col">
               {/* BRAND — same as desktop */}
               <div className="px-4 pt-4">
-                <div className="group relative flex h-[78px] items-center gap-3 overflow-hidden rounded-[20px] border border-white/[0.10] bg-[#050505] px-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,.04)]">
+                <div className="group relative flex h-[78px] items-center gap-3 overflow-hidden rounded-[20px] border border-white/80 bg-white px-3.5 shadow-[0_8px_25px_rgba(15,23,42,.06)]">
                   <span className="absolute left-0 top-1/2 h-9 w-[2px] -translate-y-1/2 rounded-r-full bg-red-500 shadow-[0_0_12px_rgba(239,68,68,.65)]" />
-                  <div className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-[14px] border border-white/[0.10] bg-black shadow-[0_8px_28px_rgba(0,0,0,.5)]">
+                  <div className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-[14px] border border-[#e2e0dc] bg-white shadow-[0_8px_28px_rgba(15,23,42,.07)]">
                     <img
                       src={`${import.meta.env.BASE_URL}models/logo.jpeg`}
                       alt="Rare Fiction"
@@ -493,7 +493,7 @@ export default function Sidebar({ mobileMenuOpen = false, setMobileMenuOpen = ()
                     />
                   </div>
                   <div className="min-w-0 leading-none">
-                    <span className="whitespace-nowrap text-[13px] font-bold uppercase tracking-[0.11em] text-white">
+                    <span className="whitespace-nowrap text-[13px] font-bold uppercase tracking-[0.11em] text-slate-900">
                       RareFiction
                     </span>
                     <p className="mt-2 text-[8px] font-bold uppercase tracking-[0.34em] text-red-500">
@@ -507,17 +507,17 @@ export default function Sidebar({ mobileMenuOpen = false, setMobileMenuOpen = ()
               {/* RFM OS DIVIDER — same as desktop */}
               <div className="relative z-10 flex items-center gap-2.5 px-7 pb-1 pt-7">
                 <span className="h-px w-6 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,.45)]" />
-                <span className="text-[8px] font-bold uppercase tracking-[0.34em] text-white/25">
+                <span className="text-[8px] font-bold uppercase tracking-[0.34em] text-slate-400">
                   RFM OS
                 </span>
               </div>
 
               {/* NAVIGATION — same sections, same items, same badges */}
-              <nav className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 py-3 [scrollbar-color:rgba(255,255,255,.12)_transparent] [scrollbar-width:thin]">
+              <nav className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 py-3 [scrollbar-color:rgba(15,23,42,.12)_transparent] [scrollbar-width:thin]">
                 {sections.map(([title, items]) =>
                   items.length ? (
                     <div key={`mobile-${title}`} className="mb-7 last:mb-0">
-                      <p className="mb-2.5 px-3 text-[8px] font-bold tracking-[0.27em] text-white/20">
+                      <p className="mb-2.5 px-3 text-[8px] font-bold tracking-[0.27em] text-slate-400">
                         {title}
                       </p>
 
@@ -531,8 +531,8 @@ export default function Sidebar({ mobileMenuOpen = false, setMobileMenuOpen = ()
                             className={({ isActive }) =>
                               `group relative flex h-[44px] items-center gap-3 rounded-[14px] px-3.5 text-[12px] font-medium tracking-[-0.01em] transition-all duration-200 ${
                                 isActive
-                                  ? "border border-red-500/20 bg-red-500/[0.09] text-white shadow-[inset_0_1px_0_rgba(239,68,68,.08),0_8px_28px_rgba(0,0,0,.18)]"
-                                  : "border border-transparent text-white/40 hover:border-white/[0.06] hover:bg-white/[0.035] hover:text-white/85"
+                                  ? "border border-red-500/20 bg-red-50 text-slate-900 shadow-[inset_0_1px_0_rgba(239,68,68,.08),0_8px_28px_rgba(15,23,42,.06)]"
+                                  : "border border-transparent text-slate-500 hover:border-[#e7e5e1] hover:bg-white/70 hover:text-slate-900"
                               }`
                             }
                           >
@@ -552,8 +552,8 @@ export default function Sidebar({ mobileMenuOpen = false, setMobileMenuOpen = ()
                                   <span
                                     className={`grid h-8 w-8 shrink-0 place-items-center rounded-[10px] transition-all duration-200 ${
                                       isActive
-                                        ? "bg-red-500/[0.12] text-red-400"
-                                        : "bg-transparent text-white/30 group-hover:bg-white/[0.045] group-hover:text-white/65"
+                                        ? "bg-red-500/[0.10] text-red-500"
+                                        : "bg-transparent text-slate-400 group-hover:bg-white group-hover:text-slate-700"
                                     }`}
                                   >
                                     <Icon size={16} strokeWidth={isActive ? 2 : 1.7} />
@@ -577,20 +577,20 @@ export default function Sidebar({ mobileMenuOpen = false, setMobileMenuOpen = ()
                 )}
 
                 {/* SIGN OUT — same as desktop */}
-                <div className="mt-5 border-t border-white/[0.07] pb-4 pt-3">
+                <div className="mt-5 border-t border-slate-200/70 pb-4 pt-3">
                   <button
                     type="button"
                     onClick={() => {
                       setMobileMenuOpen(false);
                       logout();
                     }}
-                    className="group flex h-[44px] w-full items-center gap-3 rounded-[14px] border border-transparent px-3.5 text-[12px] font-medium tracking-[-0.01em] text-white/35 transition-all duration-300 hover:border-red-500/15 hover:bg-red-500/[0.055] hover:text-white/90"
+                    className="group flex h-[44px] w-full items-center gap-3 rounded-[14px] border border-transparent px-3.5 text-[12px] font-medium tracking-[-0.01em] text-slate-500 transition-all duration-300 hover:border-red-200/70 hover:bg-red-50/70 hover:text-slate-900"
                   >
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-white/25 transition-all duration-300 group-hover:bg-red-500/[0.10] group-hover:text-red-400">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-slate-400 transition-all duration-300 group-hover:bg-red-50 group-hover:text-red-500">
                       <LogOut size={16} strokeWidth={1.7} />
                     </span>
                     <span className="flex-1 text-left">Sign out</span>
-                    <span className="text-[13px] text-white/15 transition-all duration-300 group-hover:translate-x-0.5 group-hover:text-red-400">
+                    <span className="text-[13px] text-slate-300 transition-all duration-300 group-hover:translate-x-0.5 group-hover:text-red-500">
                       →
                     </span>
                   </button>

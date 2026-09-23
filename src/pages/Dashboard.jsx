@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { CalendarDays, CheckCircle2, FolderKanban, MessageSquare, Send, UserRound } from "lucide-react";
 import { collection, doc, getDocs, limit, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { db } from "../firebase/config";
@@ -6,7 +7,6 @@ import { useAuth } from "../context/AuthContext";
 import { useShift } from "../hooks/useShift";
 import { useEndShiftLogout } from "../components/common/EndShiftLogout";
 
-const DOG = `${import.meta.env.BASE_URL}models/chow-chow-hero.png`;
 const HERO =
   "Glad you stopped in. Good taste tends to find us. Now, what are we building?";
 
@@ -17,12 +17,23 @@ const links = [
   ["Profile", "/profile"],
 ];
 
+const mobileActionIcons = {
+  Tasks: CheckCircle2,
+  Production: FolderKanban,
+  Messages: MessageSquare,
+  Profile: UserRound,
+};
+
 const formatTime = (value) => {
   const total = Math.max(0, Math.floor(value / 1000));
   return [Math.floor(total / 3600), Math.floor((total % 3600) / 60), total % 60]
     .map((n) => String(n).padStart(2, "0"))
     .join(":");
 };
+
+// Visual reference only — used to draw the day-progress bar in the hero.
+// Does not affect shift timing, attendance records, or the 5:30 PM close rule.
+const STANDARD_DAY_MS = 8.5 * 60 * 60 * 1000;
 
 function Typewriter({ text }) {
   const [shown, setShown] = useState("");
@@ -49,49 +60,26 @@ function Typewriter({ text }) {
     <>
       {shown}
       {shown.length < text.length && (
-        <span className="ml-1 inline-block h-[1em] w-[2px] animate-[blink_1s_step-end_infinite] bg-white align-middle" />
+        <span className="ml-1 inline-block h-[1em] w-[2px] animate-[blink_1s_step-end_infinite] bg-slate-900 align-middle" />
       )}
     </>
   );
 }
 
-function StatCard({ icon, label, value, note, onClick, wide = false }) {
+function Stat({ label, value, note, onClick }) {
   const Tag = onClick ? "button" : "div";
 
   return (
     <Tag
       type={onClick ? "button" : undefined}
       onClick={onClick}
-      className={`group relative overflow-hidden rounded-[20px] border border-white/[.10] bg-white/[.055] p-3.5 text-left shadow-[0_18px_50px_rgba(0,0,0,.18)] backdrop-blur-2xl transition duration-300 sm:rounded-[22px] sm:p-4 ${
-        wide ? "md:col-span-2" : ""
-      } ${onClick ? "hover:-translate-y-1 hover:bg-white/[.09]" : ""}`}
+      className="flex-1 px-4 py-3.5 text-left transition-all first:rounded-l-lg last:rounded-r-lg hover:bg-slate-50 sm:px-6 sm:py-4 max-md:rounded-none max-md:border-0 max-md:bg-transparent max-md:px-3 max-md:py-2 max-md:shadow-none"
     >
-      <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-white/[.04] blur-2xl transition group-hover:bg-orange-300/[.08]" />
-
-      <div className="relative flex items-center gap-3">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-sm text-black sm:h-10 sm:w-10">
-          {icon}
-        </span>
-
-        <div className="min-w-0">
-          <p className="text-[8px] tracking-[.22em] text-white/40 sm:text-[9px]">
-            {label}
-          </p>
-          <p className="mt-1 text-[21px] font-medium leading-none tracking-tight sm:text-2xl">
-            {value}
-          </p>
-        </div>
-
-        {onClick && (
-          <span className="ml-auto text-sm text-white/25 transition group-hover:translate-x-1 group-hover:text-white/70">
-            ↗
-          </span>
-        )}
-      </div>
-
-      <p className="relative mt-2.5 truncate pl-[48px] text-[10px] text-white/45 sm:mt-3 sm:pl-[52px] sm:text-xs">
-        {note}
+      <p className="text-[9px] font-semibold uppercase tracking-[.14em] text-slate-400">{label}</p>
+      <p className="mt-1 font-mono text-xl font-semibold tabular-nums text-slate-950 sm:text-2xl max-md:text-[18px]">
+        {value}
       </p>
+      <p className="mt-0.5 truncate text-[10px] text-slate-400 sm:text-[11px]">{note}</p>
     </Tag>
   );
 }
@@ -100,10 +88,6 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const uid = user?.uid;
-
-  const dogRef = useRef(null);
-  const motion = useRef({ x: 0, y: 0, rx: 0, ry: 0, scale: 1 });
-  const target = useRef({ x: 0, y: 0, rx: 0, ry: 0, scale: 1 });
 
   // Shift starts automatically as soon as the authenticated user reaches the dashboard.
   // The hook remains the single source of truth for today's attendance and timer.
@@ -114,6 +98,7 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [deliverables, setDeliverables] = useState([]);
   const [teamCount, setTeamCount] = useState(0);
+  const [activeToday, setActiveToday] = useState(0);
   const [error, setError] = useState("");
   // Logout = end today's shift, after a warning.
   const logoutFlow = useEndShiftLogout(onShift);
@@ -184,58 +169,6 @@ export default function Dashboard() {
     return () => window.clearTimeout(timer);
   }, [uid, onShift, status, shift.data]);
 
-  /* Smooth mouse response for the dog. */
-  useEffect(() => {
-    let frame;
-
-    const onMove = (e) => {
-      const x = e.clientX / window.innerWidth - 0.5;
-      const y = e.clientY / window.innerHeight - 0.5;
-
-      target.current = {
-        x: x * 38,
-        y: y * 23,
-        rx: -y * 3,
-        ry: x * 6,
-        scale: 1 + Math.max(0, 0.5 - Math.abs(y)) * 0.018,
-      };
-    };
-
-    const onLeave = () => {
-      target.current = { x: 0, y: 0, rx: 0, ry: 0, scale: 1 };
-    };
-
-    const animate = () => {
-      const a = motion.current;
-      const b = target.current;
-      const ease = 0.08;
-
-      a.x += (b.x - a.x) * ease;
-      a.y += (b.y - a.y) * ease;
-      a.rx += (b.rx - a.rx) * ease;
-      a.ry += (b.ry - a.ry) * ease;
-      a.scale += (b.scale - a.scale) * ease;
-
-      if (dogRef.current) {
-        dogRef.current.style.transform =
-          `translate3d(${a.x}px,${a.y}px,0) perspective(1100px) ` +
-          `rotateX(${a.rx}deg) rotateY(${a.ry}deg) scale(${a.scale})`;
-      }
-
-      frame = requestAnimationFrame(animate);
-    };
-
-    window.addEventListener("mousemove", onMove, { passive: true });
-    window.addEventListener("mouseleave", onLeave);
-    frame = requestAnimationFrame(animate);
-
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseleave", onLeave);
-      cancelAnimationFrame(frame);
-    };
-  }, []);
-
   useEffect(() => {
     if (!uid) return;
 
@@ -276,6 +209,36 @@ export default function Dashboard() {
       .catch(console.error);
   }, [uid]);
 
+  // CEO-only dashboard metric: members with an attendance record for today.
+  // This is display data only and does not alter shift/attendance behavior.
+  useEffect(() => {
+    if (!uid || profile?.role !== "CEO") {
+      setActiveToday(0);
+      return undefined;
+    }
+
+    const now = new Date();
+    const today =
+      `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-` +
+      `${String(now.getDate()).padStart(2, "0")}`;
+
+    return onSnapshot(
+      query(collection(db, "attendance"), where("date", "==", today)),
+      (snap) => {
+        setActiveToday(
+          snap.docs.filter((d) => {
+            const data = d.data() || {};
+            return Boolean(data.loginAt && data.userId);
+          }).length
+        );
+      },
+      (error) => {
+        console.error("Active today count:", error);
+        setActiveToday(0);
+      }
+    );
+  }, [uid, profile?.role]);
+
   const pendingTasks = tasks.filter(
     (t) =>
       !["APPROVED", "DONE", "COMPLETED"].includes(
@@ -303,27 +266,39 @@ export default function Dashboard() {
 
   const shownError = error || shift.error;
 
+  const displayName =
+    profile?.name ||
+    user?.displayName ||
+    user?.email?.split("@")[0] ||
+    "there";
+
+  const firstName =
+    String(displayName).trim().split(/\s+/)[0] || "there";
+
+  const HERO = `Hello ${firstName}. What are we building today?`;
+
+  // Presentational only — how far today's worked time fills the hero progress bar.
+  const dayProgressPct = Math.min(100, (worked / STANDARD_DAY_MS) * 100);
+
   return (
-    <main className="relative min-h-full overflow-hidden bg-[#070707] text-white">
-      {/* Atmosphere */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_78%_42%,rgba(255,139,56,.13),transparent_25%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_80%,rgba(255,255,255,.045),transparent_28%)]" />
-      <div className="pointer-events-none absolute inset-0 opacity-[.035] [background-image:linear-gradient(rgba(255,255,255,.7)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.7)_1px,transparent_1px)] [background-size:48px_48px]" />
+    <main className="relative min-h-full overflow-hidden bg-[#f7f7f5] text-slate-900">
+      {/* Atmosphere — a quiet drafting-grid, nothing louder */}
+      <div className="pointer-events-none absolute inset-0 opacity-[.035] [background-image:linear-gradient(rgba(15,23,42,.08)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,.08)_1px,transparent_1px)] [background-size:56px_56px]" />
 
       {/* Shift status (fixed; same positions as before on mobile and desktop). */}
-      <div className="fixed left-4 top-24 z-50 sm:left-8 sm:top-24 md:left-[296px] md:top-28 lg:left-[312px] lg:top-28">
+      <div className="fixed left-3 right-3 top-[78px] z-50 sm:left-8 sm:right-auto sm:top-24 md:left-[296px] md:right-auto md:top-28 lg:left-[312px] lg:top-28">
         {onShift ? (
-          <div className="flex items-center gap-2 rounded-full border border-white/[.13] bg-black/70 px-3.5 py-2.5 shadow-2xl backdrop-blur-2xl sm:gap-3 sm:px-4">
+          <div className="mx-auto flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-3 py-2 shadow-[0_8px_24px_rgba(15,23,42,.07)] sm:mx-0 sm:gap-3 sm:rounded-md sm:py-2.5 sm:pl-3 sm:pr-4">
             <span
-              className={`h-2 w-2 rounded-full ${
-                status === "paused" ? "bg-amber-400" : "bg-emerald-400"
+              className={`h-1.5 w-1.5 rounded-full ${
+                status === "paused" ? "bg-amber-400" : "bg-emerald-500 motion-safe:animate-pulse"
               }`}
             />
-            <strong className="text-[10px] tracking-wide sm:text-[11px]">
-              {status === "paused" ? "PAUSED" : "WORKING"}
-            </strong>
+            <span className="text-[11px] font-medium text-slate-800 sm:text-xs">
+              {status === "paused" ? "Paused" : "Working"}
+            </span>
             {status === "working" && (
-              <span className="font-mono text-[10px] text-white/50 sm:text-[11px]">
+              <span className="font-mono text-[11px] tabular-nums text-slate-400 sm:text-xs">
                 {formatTime(worked)}
               </span>
             )}
@@ -331,123 +306,143 @@ export default function Dashboard() {
               type="button"
               onClick={logoutFlow.ask}
               disabled={logoutFlow.busy}
-              className="text-[10px] underline underline-offset-2 hover:text-white/65 disabled:opacity-40 sm:text-[11px]"
+              className="ml-1 border-l border-slate-200 pl-2.5 text-[11px] text-slate-400 transition hover:text-red-600 disabled:opacity-40 sm:pl-3 sm:text-xs"
             >
               Logout
             </button>
           </div>
         ) : status === "completed" ? (
-          <div className="rounded-full border border-white/[.13] bg-black/70 px-4 py-2.5 text-[10px] backdrop-blur-2xl sm:text-[11px]">
-            ✓ Shift completed · {formatTime(worked)}
+          <div className="rounded-md border border-slate-200 bg-white/95 px-3 py-2 text-[11px] text-slate-600 sm:text-xs">
+            Shift completed · {formatTime(worked)}
           </div>
         ) : (
-          <div className="rounded-full border border-white/[.13] bg-black/70 px-4 py-2.5 text-[10px] text-white/60 backdrop-blur-2xl sm:text-[11px]">
+          <div className="rounded-md border border-slate-200 bg-white/95 px-3 py-2 text-[11px] text-slate-400 sm:text-xs">
             {status === "closed" ? "Shift hours end at 5:30 PM" : "Starting shift…"}
           </div>
         )}
       </div>
 
       {/* Fixed with the shift control; scrolling cannot move it. */}
-      <div className="pointer-events-none fixed left-2 top-[9rem] z-40 sm:left-6 md:left-[296px] md:top-[12rem] lg:left-[312px]">
-        <div className="rounded-xl border border-white/[.07] bg-black/30 px-3 py-2 shadow-lg backdrop-blur-md">
-          <p className="text-[9px] tracking-[.3em] text-white/35">RFM / OS</p>
-          <p className="mt-1 text-[10px] text-white/40 sm:text-xs">Creative operations intelligence</p>
-        </div>
+      <div className="pointer-events-none fixed right-4 top-[118px] z-40 text-right sm:right-8 sm:top-24 md:right-8 md:top-28 lg:right-10 max-md:top-[116px]">
+        <p className="text-[9px] font-semibold tracking-[.24em] text-slate-400">RFM / OS</p>
+        <p className="mt-0.5 text-[9px] text-slate-400 sm:text-[11px]">Creative operations intelligence</p>
       </div>
 
       {/* Hero */}
-      <section className="relative flex min-h-[calc(100vh-1px)] flex-col overflow-hidden px-4 pb-[300px] pt-28 sm:px-8 sm:pb-[290px] md:justify-center md:px-10 md:pb-24 md:pt-10 lg:pb-28 max-md:min-h-[calc(100svh-1px)] max-md:px-4 max-md:pb-0 max-md:pt-0">
-        <div className="pointer-events-none absolute bottom-[25%] right-[3%] h-52 w-52 rounded-full bg-orange-400/[.10] blur-[75px] sm:h-64 sm:w-64 md:hidden" />
+      <section className="relative flex min-h-[calc(100vh-1px)] flex-col overflow-hidden px-4 pb-[220px] pt-28 sm:px-8 sm:pb-[220px] md:justify-center md:px-10 md:pb-24 md:pt-10 lg:pb-28 max-md:min-h-[calc(100svh-1px)] max-md:px-4 max-md:pb-[138px] max-md:pt-0">
+        <div className="pointer-events-none absolute -right-28 top-[20%] h-64 w-64 rounded-full bg-red-100/80 blur-3xl md:hidden" />
+        <div className="pointer-events-none absolute -left-28 bottom-[18%] h-56 w-56 rounded-full bg-slate-200/70 blur-3xl md:hidden" />
 
-        <div className="relative z-30 mt-auto w-full max-w-[610px] md:-translate-y-[7vh] lg:-translate-y-[9vh] max-md:absolute max-md:left-4 max-md:right-4 max-md:top-[22%] max-md:mt-0 max-md:w-auto max-md:max-w-none max-[380px]:top-[19%]">
-          <p className="mb-5 max-w-[620px] text-[clamp(21px,2.6vw,30px)] leading-[1.28] tracking-[-.025em] text-white sm:mb-6 md:text-[clamp(23px,2.4vw,30px)] max-md:mb-4 max-md:max-w-[350px] max-md:text-[19px] max-md:leading-[1.25] max-md:tracking-[-.02em]">
+        <div className="relative z-30 mx-auto mt-auto w-full max-w-[820px] md:-translate-y-[10vh] lg:-translate-y-[12vh] max-md:absolute max-md:left-4 max-md:right-4 max-md:top-[20%] max-md:mt-0 max-md:w-auto max-md:max-w-none max-[380px]:top-[18%]">
+          <p className="mb-5 max-w-[720px] text-[clamp(28px,3.2vw,48px)] font-semibold leading-[1.1] tracking-[-.03em] text-slate-950 sm:mb-6 max-md:mb-6 max-md:max-w-[335px] max-md:text-[clamp(29px,8vw,36px)] max-md:leading-[1.02] max-md:tracking-[-.045em]">
             <Typewriter text={HERO} />
           </p>
 
-          <div className="flex max-w-[620px] flex-wrap gap-y-1 max-md:max-w-[350px] max-md:gap-y-1.5">
-            {links.map(([label, path]) => (
-              <button
-                key={path}
-                type="button"
-                onClick={() => navigate(path)}
-                className="mx-[.18em] mb-[.35em] inline-flex items-center justify-center whitespace-nowrap rounded-full border border-black/10 bg-white px-3.5 py-[.38em] text-[12px] text-black transition-all duration-200 hover:-translate-y-0.5 hover:bg-black hover:text-white sm:px-5 sm:text-[14px] max-md:px-3 max-md:py-[.32em] max-md:text-[10px]"
-              >
-                {label}
-              </button>
-            ))}
+          {/* Today's shift, drawn as a running progress bar rather than a stat tile */}
+          <div className="mb-7 max-w-[640px] rounded-[22px] border border-slate-200/90 bg-white/90 p-4 shadow-[0_14px_40px_rgba(15,23,42,.07)] backdrop-blur md:border-0 md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-none max-md:mb-7 max-md:rounded-none max-md:border-0 max-md:bg-transparent max-md:p-0 max-md:shadow-none max-md:backdrop-blur-none">
+            <div className="flex items-baseline justify-between">
+              <span className="text-[9px] font-semibold uppercase tracking-[.18em] text-slate-400">Today's focus</span>
+              <span className="font-mono text-[13px] font-semibold tabular-nums text-slate-900 sm:text-sm">
+                {shift.data ? formatTime(worked) : "00:00:00"}
+              </span>
+            </div>
+            <div className="relative mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 max-md:shadow-none">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-red-500 via-red-600 to-rose-500 transition-[width] duration-700 ease-out"
+                style={{ width: `${dayProgressPct}%` }}
+              />
+            </div>
+            <p className="mt-2 text-[11px] text-slate-400">{focusNote}</p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-slate-200 pt-4 max-md:grid max-md:grid-cols-3 max-md:gap-x-1 max-md:gap-y-5 max-md:border-none max-md:pt-0">
+            {links.map(([label, path]) => {
+              const Icon = mobileActionIcons[label];
+
+              return (
+                <button
+                  key={path}
+                  type="button"
+                  onClick={() => navigate(path)}
+                  className="rounded-full border border-slate-200 bg-white px-3 py-2 text-[11px] font-medium text-slate-700 shadow-[0_5px_16px_rgba(15,23,42,.04)] transition-all hover:-translate-y-0.5 hover:border-red-200 hover:bg-red-50 hover:text-red-600 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:shadow-none sm:text-sm max-md:flex max-md:flex-col max-md:items-center max-md:justify-center max-md:gap-2 max-md:border-0 max-md:bg-transparent max-md:px-0 max-md:py-0 max-md:shadow-none max-md:text-[10px]"
+                >
+                  <span className="hidden md:inline">{label}</span>
+
+                  <span className="flex flex-col items-center gap-2 md:hidden">
+                    <span className="grid h-12 w-12 place-items-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-[0_8px_22px_rgba(15,23,42,.06)]">
+                      {Icon ? <Icon size={18} strokeWidth={1.7} /> : null}
+                    </span>
+                    <span className="text-[10px] font-medium text-slate-700">
+                      {label}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
 
             <button
               type="button"
               onClick={() => navigate("/messages")}
-              className="mx-[.18em] mb-[.35em] inline-flex items-center justify-center whitespace-nowrap rounded-full border border-white/70 bg-transparent px-3.5 py-[.38em] text-[12px] text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-white hover:text-black sm:px-5 sm:text-[14px] max-md:px-3 max-md:py-[.32em] max-md:text-[10px]"
+              className="ml-auto inline-flex items-center justify-center whitespace-nowrap rounded-full bg-slate-950 px-4 py-2.5 text-[11px] font-semibold text-white shadow-[0_8px_22px_rgba(15,23,42,.15)] transition-all hover:-translate-y-0.5 hover:bg-red-600 sm:rounded-md sm:px-5 sm:py-2 sm:text-[13px] max-md:col-span-3 max-md:ml-0 max-md:mt-1 max-md:h-12 max-md:w-full max-md:gap-2 max-md:px-5 max-md:py-0 max-md:text-[12px] max-md:shadow-[0_12px_28px_rgba(15,23,42,.14)]"
             >
+              <Send size={15} strokeWidth={1.8} />
               Send a brief hello
             </button>
           </div>
         </div>
-
-        <div className="pointer-events-none absolute z-30 bottom-[86%] right-[9%] max-md:bottom-[53%] max-md:right-[8%]">
-          <div className="relative rounded-full border border-white/[.10] bg-black/55 px-4 py-2.5 text-center text-[10px] font-medium text-white/80 shadow-[0_12px_35px_rgba(0,0,0,.3)] backdrop-blur-xl sm:px-5 sm:text-[11px] md:text-xs">
-            i know i am cute but mind your work
-            <span className="absolute -bottom-1.5 right-[22%] h-3 w-3 rotate-45 border-b border-r border-white/[.10] bg-black/55" />
-          </div>
-        </div>
-        <div
-          ref={dogRef}
-          className="pointer-events-none absolute z-20
-            bottom-[15%] right-[-12%] w-[78%] max-w-[820px]
-            sm:bottom-[13%] sm:right-[-8%] sm:w-[72%]
-            md:bottom-[0%] md:right-[-7%] md:w-[59%]
-            lg:right-[-3%] lg:w-[55%]
-            xl:w-[51%]
-            max-md:bottom-[20%] max-md:right-[-17%] max-md:w-[92%] max-md:max-w-none
-            max-[380px]:bottom-[17%] max-[380px]:w-[96%]"
-          style={{ transformOrigin: "68% 72%" }}
-        >
-          <img
-            src={DOG}
-            alt="Chow Chow"
-            draggable="false"
-            className="relative block h-auto w-full select-none object-contain drop-shadow-[0_45px_65px_rgba(0,0,0,.75)]"
-          />
-        </div>
       </section>
 
-      {/* Stats — desktop bottom bar, mobile compact floating grid */}
-      <section className="absolute bottom-4 left-0 right-0 z-40 px-4 sm:px-8 lg:px-10 max-md:bottom-3 max-md:px-3">
-        <div className="mx-auto grid max-w-[1500px] grid-cols-2 gap-2 md:grid-cols-4 max-md:gap-2">
-          <StatCard
-            icon="▶"
-            label="FOCUS"
-            value={shift.data ? formatTime(worked) : "00:00:00"}
-            note={focusNote}
-          />
-
-          <StatCard
-            icon="✓"
-            label="MY TASKS"
+      {/* Stats — a flat ticker instead of a card grid */}
+      <section className="absolute bottom-9 left-0 right-0 z-40 px-4 sm:px-8 lg:px-10 max-md:bottom-4 max-md:px-4">
+        <div className="mx-auto flex max-w-[1200px] divide-x divide-slate-200 rounded-lg border border-slate-200 bg-white/90 shadow-[0_12px_36px_rgba(15,23,42,.06)] max-md:grid max-md:grid-cols-3 max-md:gap-0 max-md:divide-x max-md:divide-slate-200 max-md:rounded-none max-md:border-0 max-md:bg-transparent max-md:shadow-none">
+          <Stat
+            label="Tasks"
             value={pendingTasks.length}
             note={`${awaiting.length} awaiting approval`}
             onClick={() => navigate("/tasks")}
           />
 
-          <StatCard
-            icon="□"
-            label="DELIVERABLES"
+          <Stat
+            label="Deliverables"
             value={production.length}
             note="In production"
             onClick={() => navigate("/deliverables")}
           />
 
-          <StatCard
-            icon="♧"
-            label="TEAM"
-            value={teamCount || "—"}
-            note="Active team members"
-            onClick={() => navigate("/messages")}
-          />
+          {profile?.role === "CEO" ? (
+            <Stat
+              label="Active Today"
+              value={activeToday}
+              note="Members active today"
+              onClick={() => navigate("/attendance")}
+            />
+          ) : (
+            <Stat
+              label="Calendar"
+              value={new Date().getDate()}
+              note={new Date().toLocaleDateString(undefined, {
+                month: "short",
+                year: "numeric",
+              })}
+              onClick={() => navigate("/calendar")}
+            />
+          )}
         </div>
       </section>
+
+      {/* Mobile Editorial footer — presentational only */}
+      <div className="pointer-events-none absolute bottom-[118px] left-5 right-5 z-30 hidden items-end justify-between max-md:flex">
+        <p className="max-w-[190px] text-[10px] italic leading-4 text-slate-400">
+          Ideas, people and execution
+          <br />
+          in one place.
+        </p>
+
+        <div className="flex items-center gap-2 text-[8px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+          RFM OS
+          <span className="h-px w-5 bg-red-500" />
+        </div>
+      </div>
 
       {logoutFlow.dialog}
 
@@ -457,26 +452,24 @@ export default function Dashboard() {
           50% { opacity: 0; }
         }
 
+
         @media (max-width: 767px) {
           main {
-            min-height: 100%;
+            min-height: 100svh;
           }
 
-          img[alt="Chow Chow"] {
-            max-height: 390px;
-            object-fit: contain;
-            object-position: center bottom;
+          section.relative {
+            min-height: 100svh;
           }
 
-          section.absolute.bottom-4 > div > * {
-            min-height: 0;
+          button {
+            -webkit-tap-highlight-color: transparent;
           }
         }
 
+
         @media (max-width: 380px) {
-          img[alt="Chow Chow"] {
-            max-height: 340px;
-          }
+          /* Slightly tighter composition for very small phones. */
         }
 
         @media (prefers-reduced-motion: reduce) {

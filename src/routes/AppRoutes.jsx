@@ -43,7 +43,7 @@ import AppLayout from "../components/layout/AppLayout";
 
 function AppRoutes() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
 
         {/* =====================================================

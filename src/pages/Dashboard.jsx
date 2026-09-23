@@ -288,7 +288,7 @@ export default function Dashboard() {
       {/* Shift status (fixed; same positions as before on mobile and desktop). */}
       <div className="fixed left-3 right-3 top-[78px] z-50 sm:left-8 sm:right-auto sm:top-24 md:left-[296px] md:right-auto md:top-28 lg:left-[312px] lg:top-28">
         {onShift ? (
-          <div className="mx-auto flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-3 py-2 shadow-[0_8px_24px_rgba(15,23,42,.07)] sm:mx-0 sm:gap-3 sm:rounded-md sm:py-2.5 sm:pl-3 sm:pr-4">
+          <div className="flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-3 py-2 shadow-[0_8px_24px_rgba(15,23,42,.07)] sm:mx-0 sm:gap-3 sm:rounded-md sm:py-2.5 sm:pl-3 sm:pr-4">
             <span
               className={`h-1.5 w-1.5 rounded-full ${
                 status === "paused" ? "bg-amber-400" : "bg-emerald-500 motion-safe:animate-pulse"
@@ -323,16 +323,13 @@ export default function Dashboard() {
       </div>
 
       {/* Fixed with the shift control; scrolling cannot move it. */}
-      <div className="pointer-events-none fixed right-4 top-[118px] z-40 text-right sm:right-8 sm:top-24 md:right-8 md:top-28 lg:right-10 max-md:top-[116px]">
+      <div className="pointer-events-none fixed right-4 top-[78px] z-40 text-right sm:right-8 sm:top-24 md:right-8 md:top-28 lg:right-10 max-md:top-[78px]">
         <p className="text-[9px] font-semibold tracking-[.24em] text-slate-400">RFM / OS</p>
         <p className="mt-0.5 text-[9px] text-slate-400 sm:text-[11px]">Creative operations intelligence</p>
       </div>
 
       {/* Hero */}
       <section className="relative flex min-h-[calc(100vh-1px)] flex-col overflow-hidden px-4 pb-[220px] pt-28 sm:px-8 sm:pb-[220px] md:justify-center md:px-10 md:pb-24 md:pt-10 lg:pb-28 max-md:min-h-[calc(100svh-1px)] max-md:px-4 max-md:pb-[138px] max-md:pt-0">
-        <div className="pointer-events-none absolute -right-28 top-[20%] h-64 w-64 rounded-full bg-red-100/80 blur-3xl md:hidden" />
-        <div className="pointer-events-none absolute -left-28 bottom-[18%] h-56 w-56 rounded-full bg-slate-200/70 blur-3xl md:hidden" />
-
         <div className="relative z-30 mx-auto mt-auto w-full max-w-[820px] md:-translate-y-[10vh] lg:-translate-y-[12vh] max-md:absolute max-md:left-4 max-md:right-4 max-md:top-[20%] max-md:mt-0 max-md:w-auto max-md:max-w-none max-[380px]:top-[18%]">
           <p className="mb-5 max-w-[720px] text-[clamp(28px,3.2vw,48px)] font-semibold leading-[1.1] tracking-[-.03em] text-slate-950 sm:mb-6 max-md:mb-6 max-md:max-w-[335px] max-md:text-[clamp(29px,8vw,36px)] max-md:leading-[1.02] max-md:tracking-[-.045em]">
             <Typewriter text={HERO} />
@@ -383,7 +380,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => navigate("/messages")}
-              className="ml-auto inline-flex items-center justify-center whitespace-nowrap rounded-full bg-slate-950 px-4 py-2.5 text-[11px] font-semibold text-white shadow-[0_8px_22px_rgba(15,23,42,.15)] transition-all hover:-translate-y-0.5 hover:bg-red-600 sm:rounded-md sm:px-5 sm:py-2 sm:text-[13px] max-md:col-span-3 max-md:ml-0 max-md:mt-1 max-md:h-12 max-md:w-full max-md:gap-2 max-md:px-5 max-md:py-0 max-md:text-[12px] max-md:shadow-[0_12px_28px_rgba(15,23,42,.14)]"
+              className="ml-auto inline-flex items-center justify-center whitespace-nowrap rounded-full bg-slate-950 px-4 py-2.5 text-[11px] font-semibold text-white shadow-[0_8px_22px_rgba(15,23,42,.15)] transition-all hover:-translate-y-0.5 hover:bg-red-600 sm:rounded-md sm:px-5 sm:py-2 sm:text-[13px] max-md:col-span-2 max-md:ml-0 max-md:h-12 max-md:w-full max-md:gap-2 max-md:self-center max-md:px-5 max-md:py-0 max-md:text-[12px] max-md:shadow-[0_12px_28px_rgba(15,23,42,.14)]"
             >
               <Send size={15} strokeWidth={1.8} />
               Send a brief hello

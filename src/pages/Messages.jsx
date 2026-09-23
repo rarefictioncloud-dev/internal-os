@@ -517,7 +517,7 @@ export default function Messages() {
      OPEN PERSONAL CHAT
   ============================================================ */
 
-  async function openMember(member) {
+  function openMember(member) {
     if (
       !uid ||
       !member?.id ||
@@ -542,46 +542,16 @@ export default function Messages() {
     setError("");
 
     /*
-     * Conversation creation remains here,
-     * before the user can send a message.
-     */
-    try {
-      await setDoc(
-        doc(
-          db,
-          "conversations",
-          chatId
-        ),
-        {
-          type: "DIRECT",
-          memberIds: [
-            uid,
-            member.id,
-          ].sort(),
-        },
-        { merge: true }
-      );
+      Opening/searching a person does NOT create a conversation.
+      The DIRECT conversation document is created only when the
+      first message is successfully sent.
+    */
+    const latest = meta[chatId];
 
-      const latest =
-        meta[chatId];
-
-      if (latest) {
-        void markSeen(
-          chatId,
-          latest.id
-        );
-      }
-    } catch (err) {
-      console.error(
-        "Open conversation error:",
-        err
-      );
-
-      setError(
-        err?.code ===
-          "permission-denied"
-          ? "You do not have permission to open this conversation."
-          : "Unable to open this conversation."
+    if (latest) {
+      void markSeen(
+        chatId,
+        latest.id
       );
     }
   }
@@ -644,6 +614,24 @@ export default function Messages() {
       ) {
         payload.recipientId =
           recipientId;
+      }
+
+      if (selected.type === "DIRECT") {
+        await setDoc(
+          doc(
+            db,
+            "conversations",
+            selected.id
+          ),
+          {
+            type: "DIRECT",
+            memberIds: [
+              uid,
+              recipientId,
+            ].sort(),
+          },
+          { merge: true }
+        );
       }
 
       await addDoc(
@@ -723,7 +711,30 @@ export default function Messages() {
 
       const filtered = members.filter(
         (member) => {
-          if (!q) return true;
+          const id = directId(
+            uid,
+            member.id
+          );
+
+          const hasMessage =
+            Boolean(meta[id]);
+
+          /*
+            No search:
+              Show only conversations that actually contain
+              at least one message.
+
+            Search:
+              Show matching people even when no chat exists,
+              so the user can find them and send the first message.
+          */
+          if (!q && !hasMessage) {
+            return false;
+          }
+
+          if (!q) {
+            return true;
+          }
 
           return [
             member.name,
@@ -1002,9 +1013,9 @@ export default function Messages() {
               text-slate-500
             "
           >
-            Select a conversation
-            from the left to start
-            messaging.
+            General is always available.
+            Search for a team member
+            to start a private chat.
           </p>
 
           <div
@@ -1356,7 +1367,7 @@ export default function Messages() {
                     text-slate-300
                   "
                 >
-                  {members.length}
+                  {filteredMembers.length}
                 </span>
               </div>
             </div>
@@ -1417,7 +1428,9 @@ export default function Messages() {
                     text-slate-500
                   "
                 >
-                  No people found
+                  {search.trim()
+                    ? "No people found"
+                    : "No conversations yet"}
                 </p>
               </div>
             ) : (
@@ -1624,7 +1637,7 @@ export default function Messages() {
                             )}
                           </p>
 
-                          {unread && (
+                          {unread ? (
                             <span
                               className="
                                 shrink-0
@@ -1639,7 +1652,24 @@ export default function Messages() {
                             >
                               NEW
                             </span>
-                          )}
+                          ) : search.trim() && !hasMessage ? (
+                            <span
+                              className="
+                                shrink-0
+                                rounded-full
+                                border
+                                border-slate-200
+                                bg-white
+                                px-1.5 py-0.5
+                                text-[7px]
+                                font-semibold
+                                tracking-wide
+                                text-slate-400
+                              "
+                            >
+                              START
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                     </button>

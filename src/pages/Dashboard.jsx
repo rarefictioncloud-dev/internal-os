@@ -282,6 +282,8 @@ export default function Dashboard() {
 
   return (
     <main className="relative min-h-full overflow-hidden bg-[#f7f7f5] text-slate-900">
+      {/* Desktop UI — unchanged functionality and existing desktop presentation. */}
+      <div className="hidden md:block">
       {/* Atmosphere — a quiet drafting-grid, nothing louder */}
       <div className="pointer-events-none absolute inset-0 opacity-[.035] [background-image:linear-gradient(rgba(15,23,42,.08)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,.08)_1px,transparent_1px)] [background-size:56px_56px]" />
 
@@ -441,6 +443,223 @@ export default function Dashboard() {
         </div>
       </div>
 
+      </div>
+
+
+      {/* MOBILE — separate editorial layout. Presentational only. */}
+      <div className="relative h-[100svh] w-full overflow-hidden md:hidden">
+        {/* Soft editorial atmosphere */}
+        <div className="pointer-events-none absolute inset-0 bg-[#f7f7f5]" />
+        <div className="pointer-events-none absolute -right-20 top-[18%] h-64 w-64 rounded-full bg-rose-100/50 blur-3xl" />
+        <div className="pointer-events-none absolute -left-24 bottom-[8%] h-56 w-56 rounded-full bg-slate-100 blur-3xl" />
+
+        {/* Shift status */}
+        <div className="absolute left-4 top-4 z-20">
+          {onShift ? (
+            <div className="flex items-center gap-2 rounded-full border border-slate-200/90 bg-white px-3.5 py-2 shadow-[0_8px_24px_rgba(15,23,42,.07)]">
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  status === "paused"
+                    ? "bg-amber-400"
+                    : "bg-emerald-500 motion-safe:animate-pulse"
+                }`}
+              />
+              <span className="text-[10px] font-medium text-slate-800">
+                {status === "paused" ? "Paused" : "Working"}
+              </span>
+
+              {status === "working" && (
+                <span className="font-mono text-[9px] tabular-nums text-slate-400">
+                  {formatTime(worked)}
+                </span>
+              )}
+
+              <button
+                type="button"
+                onClick={logoutFlow.ask}
+                disabled={logoutFlow.busy}
+                className="border-l border-slate-200 pl-2.5 text-[9px] text-slate-400 transition hover:text-red-600 disabled:opacity-40"
+              >
+                Logout
+              </button>
+            </div>
+          ) : status === "completed" ? (
+            <div className="rounded-full border border-slate-200 bg-white px-3.5 py-2 text-[10px] text-slate-600 shadow-[0_8px_24px_rgba(15,23,42,.07)]">
+              Shift completed · {formatTime(worked)}
+            </div>
+          ) : (
+            <div className="rounded-full border border-slate-200 bg-white px-3.5 py-2 text-[10px] text-slate-400 shadow-[0_8px_24px_rgba(15,23,42,.07)]">
+              {status === "closed"
+                ? "Shift hours end at 5:30 PM"
+                : "Starting shift…"}
+            </div>
+          )}
+        </div>
+
+        {/* RFM / OS */}
+        <div className="absolute right-4 top-[58px] z-10 text-right">
+          <p className="text-[8px] font-semibold tracking-[.25em] text-slate-400">
+            RFM / OS
+          </p>
+          <p className="mt-0.5 text-[8px] text-slate-400">
+            Creative operations intelligence
+          </p>
+        </div>
+
+        {/* Editorial hero */}
+        <div className="absolute left-5 right-5 top-[19%] z-10">
+          <p className="max-w-[340px] text-[clamp(30px,8.2vw,38px)] font-semibold leading-[1.02] tracking-[-.045em] text-slate-950">
+            <Typewriter text={HERO} />
+          </p>
+
+          {/* Today's focus */}
+          <div className="mt-7">
+            <div className="flex items-baseline justify-between">
+              <span className="text-[8px] font-semibold uppercase tracking-[.2em] text-slate-400">
+                Today's focus
+              </span>
+              <span className="font-mono text-[11px] font-semibold tabular-nums text-slate-900">
+                {shift.data ? formatTime(worked) : "00:00:00"}
+              </span>
+            </div>
+
+            <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-red-500 via-red-600 to-rose-500 transition-[width] duration-700 ease-out"
+                style={{ width: `${dayProgressPct}%` }}
+              />
+            </div>
+
+            <p className="mt-2 text-[9px] text-slate-400">
+              {focusNote}
+            </p>
+          </div>
+        </div>
+
+        {/* Quick actions — editorial circles */}
+        <div className="absolute left-5 right-5 top-[54%] z-10">
+          <div className="grid grid-cols-3 gap-x-2">
+            {links.slice(0, 3).map(([label, path]) => {
+              const Icon = mobileActionIcons[label];
+
+              return (
+                <button
+                  key={path}
+                  type="button"
+                  onClick={() => navigate(path)}
+                  className="flex flex-col items-center gap-2"
+                >
+                  <span className="grid h-12 w-12 place-items-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-[0_8px_22px_rgba(15,23,42,.07)]">
+                    {Icon ? <Icon size={17} strokeWidth={1.7} /> : null}
+                  </span>
+                  <span className="text-[9px] font-medium text-slate-700">
+                    {label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-5 flex justify-center">
+            <button
+              type="button"
+              onClick={() => navigate("/profile")}
+              className="flex flex-col items-center gap-2"
+            >
+              <span className="grid h-12 w-12 place-items-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-[0_8px_22px_rgba(15,23,42,.07)]">
+                <UserRound size={17} strokeWidth={1.7} />
+              </span>
+              <span className="text-[9px] font-medium text-slate-700">
+                Profile
+              </span>
+            </button>
+          </div>
+
+          {/* Main CTA */}
+          <button
+            type="button"
+            onClick={() => navigate("/messages")}
+            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-slate-950 px-5 text-[11px] font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,.16)] transition-all active:scale-[.99]"
+          >
+            <Send size={14} strokeWidth={1.8} />
+            Send a brief hello
+          </button>
+        </div>
+
+        {/* Editorial footer */}
+        <div className="absolute bottom-[86px] left-5 right-5 z-10 flex items-end justify-between">
+          <p className="max-w-[175px] text-[9px] italic leading-3.5 text-slate-400">
+            Ideas, people and execution
+            <br />
+            in one place.
+          </p>
+
+          <div className="flex items-center gap-2 text-[7px] font-semibold uppercase tracking-[.25em] text-slate-400">
+            RFM OS
+            <span className="h-px w-5 bg-red-500" />
+          </div>
+        </div>
+
+        {/* Bottom metrics */}
+        <div className="absolute bottom-3 left-5 right-5 z-10 border-t border-slate-200/80 pt-3">
+          <div className="grid grid-cols-3 divide-x divide-slate-200">
+            <div className="px-2 first:pl-0">
+              <p className="text-[7px] font-semibold uppercase tracking-[.15em] text-slate-400">
+                Tasks
+              </p>
+              <p className="mt-1 font-mono text-[16px] font-semibold tabular-nums text-slate-950">
+                {pendingTasks.length}
+              </p>
+              <p className="mt-0.5 truncate text-[7px] text-slate-400">
+                {awaiting.length} awaiting approval
+              </p>
+            </div>
+
+            <div className="px-3">
+              <p className="text-[7px] font-semibold uppercase tracking-[.15em] text-slate-400">
+                Deliverables
+              </p>
+              <p className="mt-1 font-mono text-[16px] font-semibold tabular-nums text-slate-950">
+                {production.length}
+              </p>
+              <p className="mt-0.5 truncate text-[7px] text-slate-400">
+                In production
+              </p>
+            </div>
+
+            <div className="px-2 last:pr-0">
+              {profile?.role === "CEO" ? (
+                <>
+                  <p className="text-[7px] font-semibold uppercase tracking-[.15em] text-slate-400">
+                    Active Today
+                  </p>
+                  <p className="mt-1 font-mono text-[16px] font-semibold tabular-nums text-slate-950">
+                    {activeToday}
+                  </p>
+                  <p className="mt-0.5 truncate text-[7px] text-slate-400">
+                    Members active today
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-[7px] font-semibold uppercase tracking-[.15em] text-slate-400">
+                    Calendar
+                  </p>
+                  <p className="mt-1 font-mono text-[16px] font-semibold tabular-nums text-slate-950">
+                    {new Date().getDate()}
+                  </p>
+                  <p className="mt-0.5 truncate text-[7px] text-slate-400">
+                    {new Date().toLocaleDateString(undefined, {
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
       {logoutFlow.dialog}
 
       <style>{`

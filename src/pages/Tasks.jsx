@@ -36,6 +36,7 @@ const TASK_TYPES = [
   ["PRODUCTION", "Production / Cinematography", "Production"],
   ["REPORT", "Report", "Content"],
   ["CONTENT_IDEA", "Content idea", "Content"],
+  ["TECH", "Tech", "Tech"],
 ];
 const typeDept = (type) => TASK_TYPES.find(([k]) => k === type)?.[2] || "";
 const typeLabel = (type) => TASK_TYPES.find(([k]) => k === type)?.[1] || "";

@@ -196,6 +196,7 @@ export default function Sidebar({ mobileMenuOpen = false, setMobileMenuOpen = ()
 
   const [messageUnread, setMessageUnread] = useState(0);
   const [taskUnread, setTaskUnread] = useState(0);
+  const [billUnread, setBillUnread] = useState(0);
   const [messageToast, showMessageToast, closeMessageToast] = useTimedToast();
   const [taskToast, showTaskToast, closeTaskToast] = useTimedToast();
   const taskStateRef = useRef(new Map());
@@ -295,6 +296,48 @@ export default function Sidebar({ mobileMenuOpen = false, setMobileMenuOpen = ()
     };
   }, [uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* ---------------- BILL UPLOAD BADGE ----------------
+     Only the badge count is added here.
+     CEO sees all uploaded bills; bill uploaders see only their own uploads.
+  */
+  useEffect(() => {
+    if (!uid) {
+      setBillUnread(0);
+      return undefined;
+    }
+
+    const normalizedRole = String(role || "").trim().toUpperCase();
+    const canSeeAllBills = normalizedRole === "CEO";
+    const canSeeOwnBills = ["EMPLOYEE", "MANAGER", "HR", "LEAD"].includes(normalizedRole);
+
+    if (!canSeeAllBills && !canSeeOwnBills) {
+      setBillUnread(0);
+      return undefined;
+    }
+
+    const billsQuery = canSeeAllBills
+      ? query(
+          collection(db, "bills"),
+          where("status", "==", "PENDING")
+        )
+      : query(
+          collection(db, "bills"),
+          where("uploadedBy", "==", uid),
+          where("status", "==", "PENDING")
+        );
+
+    return onSnapshot(
+      billsQuery,
+      (snap) => setBillUnread(snap.size),
+      (error) => {
+        if (error?.code !== "permission-denied") {
+          console.error("Bills badge listener error:", error);
+        }
+        setBillUnread(0);
+      }
+    );
+  }, [uid, role]);
+
   /* ---------------- TASK NOTIFICATIONS (logic unchanged) ---------------- */
   useEffect(() => {
     if (!uid) { taskStateRef.current.clear(); setTaskUnread(0); return undefined; }
@@ -363,6 +406,7 @@ export default function Sidebar({ mobileMenuOpen = false, setMobileMenuOpen = ()
     Messages: [messageUnread, `${messageUnread} unread messages`],
     Leaves: [pendingLeaves, `${pendingLeaves} leave requests waiting for approval`],
     Tasks: [taskBadge, `${taskUnread} tasks to do, ${reviewable.length} waiting for your review`],
+    Bills: [billUnread, `${billUnread} bills uploaded`],
   };
 
   return (

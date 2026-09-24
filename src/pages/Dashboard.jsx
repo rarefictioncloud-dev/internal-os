@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CalendarDays, CheckCircle2, FolderKanban, MessageSquare, Send, UserRound } from "lucide-react";
+import { CalendarDays, CheckCircle2, FolderKanban, MessageSquare, Send, UserRound, X, AlertTriangle } from "lucide-react";
 import { collection, doc, getDocs, limit, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { db } from "../firebase/config";
@@ -100,6 +100,7 @@ export default function Dashboard() {
   const [teamCount, setTeamCount] = useState(0);
   const [activeToday, setActiveToday] = useState(0);
   const [error, setError] = useState("");
+  const [deadlineWarningDismissed, setDeadlineWarningDismissed] = useState(false);
   // Logout = end today's shift, after a warning.
   const logoutFlow = useEndShiftLogout(onShift);
 
@@ -184,6 +185,27 @@ export default function Dashboard() {
     );
   }, [uid]);
 
+  // Dismiss the dashboard deadline warning only for the current day.
+  // This is presentation-only and does not change task data or permissions.
+  useEffect(() => {
+    if (!uid) return;
+
+    const today =
+      `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-` +
+      `${String(new Date().getDate()).padStart(2, "0")}`;
+
+    try {
+      setDeadlineWarningDismissed(
+        window.localStorage.getItem(
+          `rfm-dashboard-deadline-warning-${uid}-${today}`
+        ) === "dismissed"
+      );
+    } catch (storageError) {
+      console.error("Unable to load deadline warning state:", storageError);
+      setDeadlineWarningDismissed(false);
+    }
+  }, [uid]);
+
   useEffect(() => {
     return onSnapshot(
       query(collection(db, "deliverables"), limit(40)),
@@ -257,6 +279,58 @@ export default function Dashboard() {
       )
   );
 
+  const todayDateKey = (() => {
+    const now = new Date();
+    return (
+      `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-` +
+      `${String(now.getDate()).padStart(2, "0")}`
+    );
+  })();
+
+  const todayDeadlineTasks = tasks.filter((task) => {
+    if (task.archived) return false;
+
+    const taskStatus = String(task.status || "").toUpperCase();
+    if (["APPROVED", "DONE", "COMPLETED"].includes(taskStatus)) {
+      return false;
+    }
+
+    if (!task.dueDate) return false;
+
+    const dueDateKey =
+      typeof task.dueDate === "string"
+        ? task.dueDate.slice(0, 10)
+        : typeof task.dueDate?.toDate === "function"
+          ? (() => {
+              const date = task.dueDate.toDate();
+              return (
+                `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-` +
+                `${String(date.getDate()).padStart(2, "0")}`
+              );
+            })()
+          : "";
+
+    return dueDateKey === todayDateKey;
+  });
+
+  const hasTodayDeadlineWarning =
+    todayDeadlineTasks.length > 0 && !deadlineWarningDismissed;
+
+  function dismissDeadlineWarning() {
+    setDeadlineWarningDismissed(true);
+
+    if (!uid) return;
+
+    try {
+      window.localStorage.setItem(
+        `rfm-dashboard-deadline-warning-${uid}-${todayDateKey}`,
+        "dismissed"
+      );
+    } catch (storageError) {
+      console.error("Unable to save deadline warning state:", storageError);
+    }
+  }
+
   const focusNote = {
     working: "Working now · ends 5:30 PM",
     paused: "Resuming shift…",
@@ -329,6 +403,53 @@ export default function Dashboard() {
         <p className="text-[9px] font-semibold tracking-[.24em] text-slate-400">RFM / OS</p>
         <p className="mt-0.5 text-[9px] text-slate-400 sm:text-[11px]">Creative operations intelligence</p>
       </div>
+
+      {hasTodayDeadlineWarning && (
+        <div className="fixed right-4 top-[118px] z-50 w-[min(390px,calc(100vw-2rem))] sm:right-8 sm:top-[126px] md:right-8 lg:right-10">
+          <div className="relative overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-[0_16px_42px_rgba(15,23,42,.12)]">
+            <div className="absolute inset-y-0 left-0 w-1 bg-amber-400" />
+            <div className="flex items-start gap-3 px-4 py-3.5 pl-5">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-600">
+                <AlertTriangle size={17} />
+              </div>
+              <div className="min-w-0 flex-1 pr-5">
+                <p className="text-[10px] font-bold uppercase tracking-[.14em] text-amber-600">
+                  Deadline today
+                </p>
+                <p className="mt-1 text-sm font-bold text-slate-950">
+                  {todayDeadlineTasks.length === 1
+                    ? todayDeadlineTasks[0].title || "Task deadline"
+                    : `${todayDeadlineTasks.length} tasks are due today`}
+                </p>
+                {todayDeadlineTasks.length > 1 && (
+                  <p className="mt-1 truncate text-[11px] text-slate-500">
+                    {todayDeadlineTasks
+                      .slice(0, 2)
+                      .map((task) => task.title || "Untitled task")
+                      .join(" · ")}
+                    {todayDeadlineTasks.length > 2 ? " · …" : ""}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => navigate("/tasks")}
+                  className="mt-2 text-[11px] font-bold text-slate-900 transition hover:text-red-600"
+                >
+                  View tasks →
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={dismissDeadlineWarning}
+                aria-label="Dismiss deadline warning"
+                className="absolute right-2.5 top-2.5 grid h-7 w-7 place-items-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Hero */}
       <section className="relative flex min-h-[calc(100vh-1px)] flex-col overflow-hidden px-4 pb-[220px] pt-28 sm:px-8 sm:pb-[220px] md:justify-center md:px-10 md:pb-24 md:pt-10 lg:pb-28 max-md:min-h-[calc(100svh-1px)] max-md:px-4 max-md:pb-[138px] max-md:pt-0">
@@ -505,6 +626,44 @@ export default function Dashboard() {
             Creative operations intelligence
           </p>
         </div>
+
+        {hasTodayDeadlineWarning && (
+          <div className="absolute left-4 right-4 top-[94px] z-20">
+            <div className="relative overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,.1)]">
+              <div className="absolute inset-y-0 left-0 w-1 bg-amber-400" />
+              <div className="flex items-start gap-2.5 px-3.5 py-3 pl-4">
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-amber-50 text-amber-600">
+                  <AlertTriangle size={15} />
+                </div>
+                <div className="min-w-0 flex-1 pr-5">
+                  <p className="text-[8px] font-bold uppercase tracking-[.14em] text-amber-600">
+                    Deadline today
+                  </p>
+                  <p className="mt-0.5 truncate text-[11px] font-bold text-slate-950">
+                    {todayDeadlineTasks.length === 1
+                      ? todayDeadlineTasks[0].title || "Task deadline"
+                      : `${todayDeadlineTasks.length} tasks are due today`}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/tasks")}
+                    className="mt-1 text-[9px] font-bold text-slate-700"
+                  >
+                    View tasks →
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={dismissDeadlineWarning}
+                  aria-label="Dismiss deadline warning"
+                  className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full text-slate-400"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Editorial hero */}
         <div className="absolute left-5 right-5 top-[19%] z-10">
